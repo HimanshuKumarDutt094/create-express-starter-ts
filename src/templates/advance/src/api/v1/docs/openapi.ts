@@ -18,7 +18,7 @@ export function generateOpenApiDocument() {
     },
     servers: [
       {
-        url: "/api/v1", // Base path for API endpoints
+        url: "/", // Base path for API endpoints
         description: "API V1 Server",
       },
     ],

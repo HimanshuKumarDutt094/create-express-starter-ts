@@ -15,7 +15,7 @@ export interface ApiResponse<T> {
 export function sendSuccess<T>(
   res: Response<ApiResponse<T>>,
   data: T,
-  statusCode = 200
+  statusCode = 200,
 ) {
   return res.status(statusCode).json({ success: true, data });
 }
@@ -25,8 +25,13 @@ export function sendError(
   message: string,
   code = "INTERNAL_ERROR",
   statusCode = 500,
-  details?: unknown
+  details?: unknown,
 ) {
+  console.log(
+    `Error: ${message}, Code: ${code}, Status: ${statusCode}`,
+    details,
+  );
+
   const errorPayload: ApiErrorPayload = { message, code };
   if (details && typeof details === "object") {
     errorPayload.details = details;

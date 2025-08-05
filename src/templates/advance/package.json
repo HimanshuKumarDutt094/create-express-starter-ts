@@ -7,10 +7,11 @@
   "scripts": {
     "with-env": "dotenv -e .env --",
     "build": "npm run with-env tsc && tsc-alias",
-    "start": "node --enable-source-maps dist/index.js",
-    "dev": "pnpm with-env tsx --import ./src/zod-extend.ts --watch src/index.ts",
+    "start": "npm run  with-env node --enable-source-maps dist/index.js",
+    "dev": "npm run with-env tsx --import ./src/zod-extend.ts --watch src/index.ts",
     "lint": "eslint . --ext .ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:push": "npm with-env npx drizzle-kit push"
   },
   "keywords": [],
   "author": "",

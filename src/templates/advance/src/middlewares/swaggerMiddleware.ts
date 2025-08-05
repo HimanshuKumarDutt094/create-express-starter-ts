@@ -7,7 +7,12 @@ const swaggerDocumentV1 = generateOpenApiDocumentV1();
 
 export const swaggerUiMiddleware = swaggerUi.serve;
 
-export const getSwaggerUiSetup = (document: any) => swaggerUi.setup(document);
+export const getSwaggerUiSetup = (url: string) =>
+  swaggerUi.setup(null, {
+    swaggerOptions: {
+      url,
+    },
+  });
 
 export const openApiJsonHandlerV1 = (req: Request, res: Response) => {
   res.json(swaggerDocumentV1);

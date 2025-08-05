@@ -10,11 +10,9 @@ const app = express();
 // Middleware to parse JSON bodies
 app.use(express.json());
 app.use(helmet());
-app.get("/", (_, res) => {
-  res.send("Hello, World!");
-});
 // API V1 Routes
 app.use("/api/v1", healthRoutes);
+
 app.use("/api/v1/users", userRoutes);
 // Mount documentation routes under /docs only in development
 if (env.NODE_ENV !== "production") {
@@ -24,7 +22,10 @@ if (env.NODE_ENV !== "production") {
 const PORT = env.PORT;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Documentation is available at http://localhost:${PORT}/docs/v1`);
+  if (env.NODE_ENV !== "production")
+    console.log(
+      `Documentation is available at http://localhost:${PORT}/docs/v1`,
+    );
 });
 
 export default app;
