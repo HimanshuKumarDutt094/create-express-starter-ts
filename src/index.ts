@@ -100,6 +100,13 @@ export async function main(): Promise<void> {
         // Don't copy package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lock
         const filename = path.basename(src);
 
+        // Always copy .gitignore
+        if (filename === ".gitignore") {
+          console.log("copying over gitignore");
+
+          return true;
+        }
+
         return (
           filename !== "node_modules" &&
           filename !== "dist" &&
