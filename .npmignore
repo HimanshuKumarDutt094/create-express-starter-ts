@@ -1,0 +1,11 @@
+# Ignore everything by default, then explicitly include what's needed
+*
+
+# Don't ignore the dist directory
+!/dist/
+
+# Don't ignore the templates directory
+!/templates/
+
+# Don't ignore .gitignore files within the templates directory
+!/templates/**/.gitignore
