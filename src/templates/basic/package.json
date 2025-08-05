@@ -4,8 +4,11 @@
   "description": "",
   "type": "module",
   "main": "./src/index.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+ "scripts": {
+    "with-env": "dotenv -e .env --",
+    "build": "npm run with-env tsc && tsc-alias",
+    "start": "node --enable-source-maps dist/index.js",
+    "dev": "npm run with-env tsx --watch src/index.ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
   },
@@ -21,7 +24,8 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "prettier": "^3.3.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "tsc-alias": "^1.8.16"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.8",
