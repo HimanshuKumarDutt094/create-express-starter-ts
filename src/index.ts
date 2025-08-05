@@ -100,8 +100,8 @@ export async function main(): Promise<void> {
         // Don't copy package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lock
         const filename = path.basename(src);
 
-        // Always copy .gitignore.template
-        if (filename === ".gitignore.template") {
+        // Always copy .gitignore.txt
+        if (filename === ".gitignore.txt") {
           return true;
         }
 
@@ -115,11 +115,8 @@ export async function main(): Promise<void> {
       },
     });
 
-    // Rename .gitignore.template to .gitignore
-    const gitignoreTemplatePathAdvance = path.join(
-      targetDir,
-      ".gitignore.template"
-    );
+    // Rename .gitignore.txt to .gitignore
+    const gitignoreTemplatePathAdvance = path.join(targetDir, ".gitignore.txt");
     if (await fs.pathExists(gitignoreTemplatePathAdvance)) {
       await fs.rename(
         gitignoreTemplatePathAdvance,
