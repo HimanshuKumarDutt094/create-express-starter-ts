@@ -1,6 +1,6 @@
 {
   "name": "create-express-starter-ts",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Create a new Express project with a bunch of goodies pre-configured.",
   "type": "module",
   "license": "MIT",
