@@ -101,7 +101,7 @@ export async function main(): Promise<void> {
         const filename = path.basename(src);
 
         // Always copy .gitignore.txt
-        if (filename === ".gitignore.txt") {
+        if (filename === "gitignore.txt") {
           return true;
         }
 
@@ -116,7 +116,7 @@ export async function main(): Promise<void> {
     });
 
     // Rename .gitignore.txt to .gitignore
-    const gitignoreTemplatePathAdvance = path.join(targetDir, ".gitignore.txt");
+    const gitignoreTemplatePathAdvance = path.join(targetDir, "gitignore.txt");
     if (await fs.pathExists(gitignoreTemplatePathAdvance)) {
       await fs.rename(
         gitignoreTemplatePathAdvance,
