@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import { intro, outro, confirm, text, spinner, select } from "@clack/prompts";
-import { $ } from "execa";
-import { pastel } from "gradient-string";
-import fs from "fs-extra";
-import path from "node:path";
+import { confirm, intro, outro, select, spinner, text } from "@clack/prompts";
 import consola from "consola";
+import { $ } from "execa";
+import fs from "fs-extra";
+import { pastel } from "gradient-string";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -99,6 +99,7 @@ export async function main(): Promise<void> {
 
         return (
           filename !== "node_modules" &&
+          filename !== "dist" &&
           !filename.endsWith("lock.json") &&
           !filename.endsWith(".lock") &&
           !filename.endsWith(".yaml")
