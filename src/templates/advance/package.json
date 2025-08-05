@@ -1,5 +1,5 @@
 {
-  "name": "basic",
+  "name": "advance",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -8,7 +8,7 @@
     "with-env": "dotenv -e .env --",
     "build": "npm run with-env tsc && tsc-alias",
     "start": "node --enable-source-maps dist/index.js",
-    "dev": "npm run with-env tsx --watch src/index.ts",
+    "dev": "pnpm with-env tsx --import ./src/zod-extend.ts --watch src/index.ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
   },
