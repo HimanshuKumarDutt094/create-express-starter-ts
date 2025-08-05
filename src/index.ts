@@ -48,6 +48,9 @@ export async function main(): Promise<void> {
     targetDir = response;
   }
 
+  // Store original targetDir before resolving to absolute path
+  const originalTargetDir = targetDir;
+
   // Resolve to absolute path
   targetDir = path.resolve(targetDir);
 
@@ -106,10 +109,6 @@ export async function main(): Promise<void> {
         );
       },
     });
-    const gitignorePath = path.join(targetDir, "gitignore");
-    if (await fs.pathExists(gitignorePath)) {
-      await fs.rename(gitignorePath, path.join(targetDir, ".gitignore"));
-    }
     s.stop("Project structure created");
   } catch (error) {
     s.stop("Failed to create project structure");
@@ -150,7 +149,7 @@ export async function main(): Promise<void> {
 
   // Show next steps
   consola.info(`\nNext steps:`);
-  if (targetDir !== ".") {
+  if (originalTargetDir !== ".") {
     consola.info(`  cd ${path.relative(process.cwd(), targetDir)}`);
   }
   if (!shouldInstall) {

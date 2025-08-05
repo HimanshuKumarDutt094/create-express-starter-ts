@@ -145,7 +145,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
         price: z.number().positive(),
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
-      }),
+      })
     );
 
     export const CreateProductSchema = registry.register(
@@ -153,7 +153,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
       z.object({
         name: z.string().min(3),
         price: z.number().positive(),
-      }),
+      })
     );
 
     export const UpdateProductSchema = registry.register(
@@ -161,14 +161,14 @@ This guide provides a detailed overview of the advanced Express.js template stru
       z.object({
         name: z.string().min(3).optional(),
         price: z.number().positive().optional(),
-      }),
+      })
     );
 
     export const ProductIdParam = registry.register(
       "ProductIdParam",
       z.object({
         id: z.string().uuid(),
-      }),
+      })
     );
     ```
 
@@ -179,11 +179,8 @@ This guide provides a detailed overview of the advanced Express.js template stru
 
     ```typescript
     // src/api/v1/validators/product.validators.ts
-    import { validateRequest } from "zod-express-middleware";
-    import {
-      CreateProductSchema,
-      UpdateProductSchema,
-    } from "../schemas/product.schema";
+    import validateRequest from "express-zod-safe";
+    import { CreateProductSchema, UpdateProductSchema } from "../schemas/product.schema";
 
     export const createProductValidator = validateRequest({
       body: CreateProductSchema,
@@ -227,7 +224,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           })
-          .returning(), // Use .returning() to get the inserted data
+          .returning() // Use .returning() to get the inserted data
       );
 
       if (error) {
@@ -237,9 +234,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
     };
 
     export const getProducts = async (_req: Request, res: Response) => {
-      const { data: allProducts, error } = await tryCatch(
-        db.select().from(products),
-      );
+      const { data: allProducts, error } = await tryCatch(db.select().from(products));
 
       if (error) {
         return sendError(res, error.message, "FETCH_PRODUCTS_FAILED", 500);
@@ -273,15 +268,9 @@ This guide provides a detailed overview of the advanced Express.js template stru
 
     ```typescript
     // src/api/v1/routes/product.route.ts
-    import {
-      createProduct,
-      getProducts,
-    } from "@/api/v1/controllers/product.controller";
+    import { createProduct, getProducts } from "@/api/v1/controllers/product.controller";
     import { createProductValidator } from "@/api/v1/validators/product.validators";
-    import {
-      CreateProductSchema,
-      ProductSchema,
-    } from "@/api/v1/schemas/product.schema";
+    import { CreateProductSchema, ProductSchema } from "@/api/v1/schemas/product.schema";
     import { registry } from "@/utils/openapiRegistry";
     import { Router } from "express";
 
