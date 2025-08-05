@@ -15,8 +15,7 @@ node_modules
 dist
 dist-ssr
 *.local
-*.env
-*.env.*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -31,3 +30,5 @@ package-lock.json
 bun.lock
 pnpm-lock.yaml
 yarn.lock
+*.env
+*.env.*

@@ -18,7 +18,7 @@
     "templates"
   ],
   "bin": {
-    "create-express-starter-ts": "./dist/index.js"
+    "create-express-starter-ts": "dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -30,7 +30,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown src/index.ts && node copy-templates.js",
+    "build": "tsdown src/index.ts && cp -r src/templates dist/",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

@@ -100,10 +100,8 @@ export async function main(): Promise<void> {
         // Don't copy package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lock
         const filename = path.basename(src);
 
-        // Always copy .gitignore
-        if (filename === ".gitignore") {
-          console.log("copying over gitignore");
-
+        // Always copy .gitignore.template
+        if (filename === ".gitignore.template") {
           return true;
         }
 
@@ -116,6 +114,19 @@ export async function main(): Promise<void> {
         );
       },
     });
+
+    // Rename .gitignore.template to .gitignore
+    const gitignoreTemplatePathAdvance = path.join(
+      targetDir,
+      ".gitignore.template"
+    );
+    if (await fs.pathExists(gitignoreTemplatePathAdvance)) {
+      await fs.rename(
+        gitignoreTemplatePathAdvance,
+        path.join(targetDir, ".gitignore")
+      );
+    }
+
     s.stop("Project structure created");
   } catch (error) {
     s.stop("Failed to create project structure");
