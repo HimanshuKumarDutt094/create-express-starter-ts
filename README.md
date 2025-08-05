@@ -14,13 +14,37 @@
 - **Git Initialization**: Option to initialize a Git repository.
 - **Dependency Installation**: Option to install project dependencies using your preferred package manager (npm, yarn, pnpm, or bun).
 
+## Technologies Used
+
+### Core Technologies (Both Basic and Advance Templates)
+
+- **Express.js**: Fast, unopinionated, minimalist web framework for Node.js.
+- **TypeScript**: Superset of JavaScript that adds static typing.
+- **Zod**: TypeScript-first schema declaration and validation library. Used for robust data validation.
+- **`@t3-oss/env-core`**: Type-safe environment variable parsing and validation.
+- **`dotenv-cli`**: Loads environment variables from `.env` files.
+- **`tsx`**: Instantly run TypeScript files without precompilation.
+- **`tsc-alias`**: Resolves TypeScript path aliases in compiled JavaScript.
+- **ESLint & Prettier**: Code linting and formatting for consistent code style.
+
+### Advance Template Specific Technologies
+
+- **Helmet**: Helps secure Express apps by setting various HTTP headers.
+- **Swagger UI Express**: Serves auto-generated API documentation via Swagger UI.
+- **`@asteasolutions/zod-to-openapi`**: Generates OpenAPI 3.x documentation from Zod schemas and Express routes.
+- **Drizzle ORM**: A modern TypeScript ORM for SQL databases.
+- **Drizzle Kit**: CLI tool for Drizzle ORM, used for migrations and schema management.
+- **Better SQLite3**: A fast and simple SQLite3 library for Node.js, used as the database driver for Drizzle ORM in the advance template.
+- **`cors`**: Middleware to enable Cross-Origin Resource Sharing.
+- **`zod-express-middleware`**: Integrates Zod validation with Express middleware for request validation.
+
 ## Installation
 
 To use `create-express-starter`, you can clone this repository and run the CLI directly.
 
 ```bash
-git clone https://github.com/HimanshuKumarDutt094/create-exress-starter.git
-cd create-exress-starter
+git clone https://github.com/HimanshuKumarDutt094/create-express-starter-ts.git
+cd create-express-starter-ts
 pnpm install # or npm install, yarn install, bun install
 ```
 

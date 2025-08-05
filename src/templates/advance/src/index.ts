@@ -26,6 +26,9 @@ app.listen(PORT, () => {
     console.log(
       `Documentation is available at http://localhost:${PORT}/docs/v1`,
     );
+  console.log(
+    "If you modify src/drizzle/src/db/schema.ts, remember to run 'pnpm db:push' to apply schema changes.",
+  );
 });
 
 export default app;
