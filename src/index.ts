@@ -101,7 +101,7 @@ export async function main(): Promise<void> {
         const filename = path.basename(src);
 
         // Always copy .gitignore.txt
-        if (filename === "gitignore.txt") {
+        if (filename === "git-ignore.txt") {
           return true;
         }
 
@@ -115,13 +115,12 @@ export async function main(): Promise<void> {
       },
     });
 
-    // Rename .gitignore.txt to .gitignore
-    const gitignoreTemplatePathAdvance = path.join(targetDir, "gitignore.txt");
-    if (await fs.pathExists(gitignoreTemplatePathAdvance)) {
-      await fs.rename(
-        gitignoreTemplatePathAdvance,
-        path.join(targetDir, ".gitignore")
-      );
+    // Copy content of git-ignore.txt to .gitignore
+    const gitignoreSourcePath = path.join(targetDir, "git-ignore.txt");
+    const gitignoreDestPath = path.join(targetDir, ".gitignore");
+    if (await fs.pathExists(gitignoreSourcePath)) {
+      const gitignoreContent = await fs.readFile(gitignoreSourcePath, "utf8");
+      await fs.writeFile(gitignoreDestPath, gitignoreContent);
     }
 
     s.stop("Project structure created");
