@@ -1,6 +1,6 @@
-# create-express-starter
+# create-express-starter-ts
 
-`create-express-starter` is a command-line interface (CLI) tool that helps you quickly set up a new Express.js project. It provides options to generate either a basic Express application or an advanced Express application with a more comprehensive structure, including API versioning, controllers, routes, schemas, and utilities.
+`create-express-starter-ts` is a command-line interface (CLI) tool that helps you quickly set up a new Express.js project. It provides options to generate either a basic Express application or an advanced Express application with a more comprehensive structure, including API versioning, controllers, routes, schemas, and utilities.
 
 ## Features
 
@@ -40,21 +40,31 @@
 
 ## Installation
 
-To use `create-express-starter`, you can clone this repository and run the CLI directly.
+To use `create-express-starter-ts`, you can run it directly using `npx`, `pnpx`, `bun x`, or `yarn create`.
 
-```bash
-git clone https://github.com/HimanshuKumarDutt094/create-express-starter-ts.git
-cd create-express-starter-ts
-pnpm install # or npm install, yarn install, bun install
-```
+Alternatively, if you want to build the CLI from scratch, clone this repository and follow the development instructions.
 
 ## Usage
 
-To create a new Express project, run the CLI from the root of this repository:
+To create a new Express project, run one of the following commands:
 
 ```bash
-pnpm ts-node src/index.ts
+npx create-express-starter-ts@latest [project-name]
 ```
+
+```bash
+pnpx create-express-starter-ts@latest [project-name]
+```
+
+```bash
+bun x create-express-starter-ts@latest [project-name]
+```
+
+```bash
+yarn create express-starter-ts [project-name]
+```
+
+Replace `[project-name]` with the desired name for your new project. If `[project-name]` is omitted, the CLI will prompt you for the project directory.
 
 The CLI will prompt you for the following information:
 
@@ -66,7 +76,7 @@ The CLI will prompt you for the following information:
 ### Example
 
 ```bash
-$ pnpm ts-node src/index.ts
+$ npx create-express-starter-ts@latest
 
 ? Where would you like to create your project? › my-express-app
 ? Which Express setup would you like? › Basic Express Setup
@@ -147,7 +157,7 @@ To view the API documentation, start your advanced Express application and navig
 
 ## Development
 
-To develop `create-express-starter` itself:
+To develop `create-express-starter-ts` itself:
 
 ```bash
 pnpm dev # Starts TypeScript in watch mode
