@@ -99,6 +99,28 @@ The "Advance Express Setup" provides a robust structure for scalable Express app
 └── ...
 ```
 
+## OpenAPI Documentation with Zod
+
+The "Advance Express Setup" includes comprehensive OpenAPI (Swagger) documentation generated using `zod-to-openapi`. This integration ensures that your API documentation is always in sync with your Zod schemas, providing type-safe and accurate specifications for your endpoints.
+
+**Key Features:**
+
+- **Automatic Schema Generation**: Zod schemas defined for request bodies, query parameters, and response payloads are automatically converted into OpenAPI schema objects.
+- **Route Definition**: API routes are registered with the OpenAPI registry, including their methods, paths, summaries, descriptions, and associated schemas.
+- **Swagger UI**: The generated OpenAPI document is served via Swagger UI, providing an interactive interface to explore and test your API endpoints.
+- **Type Safety**: Leverage the power of Zod for runtime validation and TypeScript for compile-time type checking, ensuring your API adheres to its defined contracts.
+
+**Relevant Files:**
+
+- `src/api/v1/docs/openapi.ts`: Configures the OpenAPI document, including API info, servers, and security schemes. It imports and registers all necessary routes and schemas.
+- `src/utils/openapiRegistry.ts`: A shared registry instance used to collect all OpenAPI definitions (paths, schemas, components) from various parts of your application.
+- `src/api/v1/routes/*.ts`: API route files where endpoints are defined and registered with the OpenAPI registry using `registry.registerPath()`.
+- `src/api/v1/schemas/*.ts`: Zod schema files that define the structure of your request and response data. These schemas are automatically picked up by `zod-to-openapi`.
+- `src/middlewares/swaggerMiddleware.ts`: Handles serving the OpenAPI JSON and setting up Swagger UI.
+- `src/docs/docs.route.ts`: Defines the routes for accessing the Swagger UI documentation.
+
+To view the API documentation, start your advanced Express application and navigate to `http://localhost:3000/docs/v1` (assuming default port 3000).
+
 ## Development
 
 To develop `create-express-starter` itself:
