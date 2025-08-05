@@ -121,6 +121,7 @@ export async function main(): Promise<void> {
     if (await fs.pathExists(gitignoreSourcePath)) {
       const gitignoreContent = await fs.readFile(gitignoreSourcePath, "utf8");
       await fs.writeFile(gitignoreDestPath, gitignoreContent);
+      await fs.remove(gitignoreSourcePath); // Remove the .txt file after successful copy
     }
 
     s.stop("Project structure created");
