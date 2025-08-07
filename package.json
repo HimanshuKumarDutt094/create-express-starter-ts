@@ -34,7 +34,7 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "release": "bumpp && npm build && npm publish"
+    "release": "bumpp && npm publish"
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
