@@ -100,9 +100,9 @@ export async function main(): Promise<void> {
         // Don't copy package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lock
         const filename = path.basename(src);
 
-        // Always copy .gitignore.txt
+        // Don't copy git-ignore.txt directly, we'll handle it separately
         if (filename === "git-ignore.txt") {
-          return true;
+          return false;
         }
 
         return (
@@ -115,14 +115,10 @@ export async function main(): Promise<void> {
       },
     });
 
-    // Copy content of git-ignore.txt to .gitignore
-    const gitignoreSourcePath = path.join(targetDir, "git-ignore.txt");
-    const gitignoreDestPath = path.join(targetDir, ".gitignore");
-    if (await fs.pathExists(gitignoreSourcePath)) {
-      const gitignoreContent = await fs.readFile(gitignoreSourcePath, "utf8");
-      await fs.writeFile(gitignoreDestPath, gitignoreContent);
-      await fs.remove(gitignoreSourcePath); // Remove the .txt file after successful copy
-    }
+    // Read git-ignore.txt content from template and write to .gitignore in targetDir
+    const gitignoreTemplatePath = path.join(TEMPLATE_DIR, "git-ignore.txt");
+    const gitignoreContent = await fs.readFile(gitignoreTemplatePath, "utf8");
+    await fs.writeFile(path.join(targetDir, ".gitignore"), gitignoreContent);
 
     s.stop("Project structure created");
   } catch (error) {
@@ -170,7 +166,15 @@ export async function main(): Promise<void> {
   if (!shouldInstall) {
     consola.info(`  ${await detectPackageManager()} install`);
   }
-  consola.info(`  ${await detectPackageManager()} run dev\n`);
+  consola.info(`  ${await detectPackageManager()} run dev`);
+  if ((await detectPackageManager()) === "pnpm") {
+    consola.info(
+      `  For SQLite users, you may need to run: pnpm approve-builds`
+    );
+  }
+  consola.info(
+    `\n  For Drizzle ORM setup, visit: https://orm.drizzle.team/docs/get-started\n`
+  );
 }
 
 main().catch(console.error);

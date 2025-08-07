@@ -5,14 +5,14 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "with-env": "dotenv -e .env --",
-    "build": "npm run with-env tsc && tsc-alias",
-    "start": "npm run  with-env node --enable-source-maps dist/index.js",
-    "dev": "npm run with-env tsx --import ./src/zod-extend.ts --watch src/index.ts",
+    "with-env": "  dotenv -e .env --",
+    "build": "npm run with-env -- tsc && tsc-alias",
+    "start": "npm run  with-env -- node --enable-source-maps dist/index.js",
+    "dev": "npm run with-env -- tsx --import ./src/zod-extend.ts --watch src/index.ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
-    "db:push": "npm with-env npx drizzle-kit push",
-    "db:studio": "npm with-env npx drizzle-kit studio"
+    "db:push": "npm run with-env -- npx drizzle-kit push",
+    "db:studio": "npm run with-env -- npx drizzle-kit studio"
   },
   "keywords": [],
   "author": "",
