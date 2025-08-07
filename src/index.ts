@@ -167,14 +167,15 @@ export async function main(): Promise<void> {
     consola.info(`  ${await detectPackageManager()} install`);
   }
   consola.info(`  ${await detectPackageManager()} run dev`);
-  if ((await detectPackageManager()) === "pnpm") {
+  consola.info(
+    `\n  For Drizzle ORM setup, visit: https://orm.drizzle.team/docs/get-started\n`
+  );
+  const packageManager = await detectPackageManager();
+  if (packageManager === "pnpm") {
     consola.info(
       `  For SQLite users, you may need to run: pnpm approve-builds`
     );
   }
-  consola.info(
-    `\n  For Drizzle ORM setup, visit: https://orm.drizzle.team/docs/get-started\n`
-  );
 }
 
 main().catch(console.error);

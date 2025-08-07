@@ -6,9 +6,9 @@
   "main": "./src/index.ts",
  "scripts": {
     "with-env": "dotenv -e .env --",
-    "build": "npm run with-env tsc && tsc-alias",
+    "build": "npm run with-env -- tsc && tsc-alias",
     "start": "node --enable-source-maps dist/index.js",
-    "dev": "npm run with-env tsx --watch src/index.ts",
+    "dev": "npm run -- with-env tsx --watch src/index.ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
   },
