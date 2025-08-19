@@ -1,4 +1,4 @@
-import { requireAuth } from "@/middlewares/auth.middleware.js";
+import { requireAuth, withRequiredAuth } from "@/middlewares/auth.middleware.js";
 import { registry } from "@/utils/openapiRegistry.js";
 import { Router } from "express";
 import { z } from "zod";
@@ -136,8 +136,7 @@ userRouter.get("/:id", validateGetUser, userController.getUser);
 userRouter.put(
   "/:id",
   validateUpdateUser, // validateUpdateUser includes params and body validation
-  requireAuth,
-  userController.updateUser
+  withRequiredAuth(userController.updateUser)
 );
 
 userRouter.delete("/:id", validateDeleteUser, requireAuth, userController.deleteUser);
