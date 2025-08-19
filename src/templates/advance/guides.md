@@ -22,15 +22,14 @@ This guide provides a detailed overview of the advanced Express.js template stru
 │   │       └── validators/
 │   │           └── user.validators.ts
 │   ├── drizzle/
-│   │   ├── drizle.config.ts
-│   │   └── src/
-│   │       ├── db/
-│   │       │   └── schema.ts
-│   │       └── index.ts
+│   │   ├── index.ts
+│   │   ├── schema.ts
+│   │   └── auth-schema.ts
 │   ├── docs/
 │   │   └── docs.route.ts
 │   ├── middlewares/
-│   │   └── swaggerMiddleware.ts
+│   │   ├── swaggerMiddleware.ts
+│   │   └── auth.middleware.ts
 │   ├── services/
 │   ├── types/
 │   │   └── express.d.ts
@@ -38,7 +37,8 @@ This guide provides a detailed overview of the advanced Express.js template stru
 │   │   ├── api-response.ts
 │   │   ├── env.ts
 │   │   ├── openapiRegistry.ts
-│   │   └── try-catch.ts
+│   │   ├── try-catch.ts
+│   │   └── auth.ts
 │   ├── index.ts
 │   └── zod-extend.ts
 ├── .env
@@ -52,8 +52,9 @@ This guide provides a detailed overview of the advanced Express.js template stru
 
 - **`src/index.ts`**:
   - The main entry point of your Express application.
-  - Initializes the Express app, applies global middleware (e.g., `express.json()`, `helmet`), and mounts API routes and documentation routes.
-  - **Where to add code**: Primarily for global middleware and mounting top-level routers. Avoid adding direct route handlers here.
+  - Initializes security middleware (`helmet`, `cors`), mounts Better Auth handler, injects global auth context, then applies `express.json()` and routes.
+  - Important order: `helmet`/`cors` → `app.all("/api/auth/*auth", toNodeHandler(auth))` → `installAuth(app)` → `express.json()` → routes.
+  - **Where to add code**: Global middleware and mounting routers. Avoid adding direct route handlers here.
 
 - **`src/api/v1/`**:
   - This directory encapsulates version 1 of your API. For new API versions (e.g., `v2`), you would create a new `v2` directory.
@@ -64,7 +65,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
     - Configures the OpenAPI (Swagger) document for API v1. It defines API info, server URLs, and imports all routes and schemas to be included in the documentation.
     - **Where to add code**: Update API metadata, add new server URLs, or configure security schemes. Ensure all new routes and schemas are imported here to be included in the documentation.
   - **`routes/`**:
-    - Defines the API endpoints and links them to their respective controller functions. These files use `zod-express-middleware` for request validation and `zod-to-openapi` to register paths for documentation.
+    - Defines the API endpoints and links them to their respective controller functions. These files use `express-zod-safe` for request validation and `@asteasolutions/zod-to-openapi` to register paths for documentation.
     - **Where to add code**: Define new API routes (e.g., `user.route.ts` for user-related routes). Each route should specify its method (GET, POST, etc.), path, validation schemas, and the controller function to handle the request.
   - **`schemas/`**:
     - Contains Zod schemas that define the structure and validation rules for request bodies, query parameters, and response payloads.
@@ -74,11 +75,11 @@ This guide provides a detailed overview of the advanced Express.js template stru
     - **Where to add code**: Create new validation middleware for your routes, leveraging the schemas defined in `src/api/v1/schemas/`.
 
 - **`src/drizzle/`**:
-  - Contains Drizzle ORM related configurations and database schema.
-  - **`drizle.config.ts`**: Drizzle Kit configuration file.
-    - **Where to add code**: Configure database connection details, schema paths, and migration directories.
-  - **`src/db/schema.ts`**: Defines your database schema using Drizzle ORM.
-    - **Where to add code**: Define your database tables, columns, and relationships here. After modifying, remember to run `pnpm db:push` to apply changes to the database.
+  - Contains Drizzle ORM setup and database schema.
+  - **`index.ts`**: Exposes a Drizzle DB instance (e.g., `better-sqlite3`) using `env.DATABASE_URL`.
+  - **`schema.ts`**: Exports your database schema (now re-exporting from `auth-schema.ts`). Add non-auth tables alongside.
+  - **`auth-schema.ts`**: Better Auth core tables (`user`, `session`, `account`, `verification`).
+    - **Where to add code**: Add/extend non-auth tables in `schema.ts` and migrate accordingly.
 
 - **`src/docs/docs.route.ts`**:
   - Handles the serving of the OpenAPI (Swagger UI) documentation.
@@ -87,6 +88,10 @@ This guide provides a detailed overview of the advanced Express.js template stru
 - **`src/middlewares/swaggerMiddleware.ts`**:
   - Provides middleware functions for serving the OpenAPI JSON and setting up Swagger UI.
   - **Where to add code**: Rarely modified, unless you need to customize how Swagger UI is served or how the OpenAPI JSON is generated/accessed.
+
+- **`src/middlewares/auth.middleware.ts`**:
+  - Provides Better Auth helpers: `attachAuth`, `requireAuth`, and `withAuth`, plus `installAuth(app)` to globally inject `req.auth`.
+  - **Where to add code**: Use `requireAuth` to protect routes or `attachAuth` for optional session.
 
 - **`src/services/`**:
   - This directory is intended for business logic that is independent of the Express request/response cycle. Services can encapsulate interactions with external APIs, complex calculations, or database operations.
@@ -106,6 +111,8 @@ This guide provides a detailed overview of the advanced Express.js template stru
     - **Where to add code**: Rarely modified, as it's a core component for `zod-to-openapi` integration.
   - **`try-catch.ts`**: A utility for wrapping asynchronous Express route handlers to simplify error handling.
     - **Where to add code**: Use this wrapper around your async route handlers to automatically catch errors.
+  - **`auth.ts`**: Better Auth server instance configured with Drizzle and providers.
+    - **Where to add code**: Configure providers (e.g., GitHub), and ensure env vars are set.
 
 - **`src/zod-extend.ts`**:
   - Extends Zod with custom types or functionalities.
@@ -114,14 +121,111 @@ This guide provides a detailed overview of the advanced Express.js template stru
 ## Getting Started
 
 1.  **Define Environment Variables**: Update `.env` with your application's configuration (e.g., database connection strings, API keys).
-2.  **Define Database Schema**: If using Drizzle ORM, define your database tables and relationships in `src/drizzle/src/db/schema.ts`.
-3.  **Apply Schema Changes**: After modifying `src/drizzle/src/db/schema.ts`, run `pnpm db:push` to apply the schema changes to your database.
+2.  **Define Database Schema**: If using Drizzle ORM, define your tables in `src/drizzle/schema.ts` (auth tables live in `auth-schema.ts`).
+3.  **Apply Schema Changes**: Use your Drizzle workflow (e.g., `drizzle-kit push` or your scripts) to apply schema changes.
 4.  **Create API Endpoints**:
     - Define Zod schemas for request/response data in `src/api/v1/schemas/`.
     - Implement the business logic in `src/api/v1/controllers/`.
     - Define the API routes and link them to controllers and validators in `src/api/v1/routes/`.
     - Ensure new routes and schemas are imported in `src/api/v1/docs/openapi.ts` for documentation.
 5.  **View Documentation**: Start your application and navigate to `http://localhost:3000/docs/v1` to view the interactive API documentation.
+
+## Authentication & CORS
+
+- **Environment variables** (`.env`):
+  - `DATABASE_URL`: path/connection string
+  - `PORT`: server port
+  - `NODE_ENV`: development | production | test
+  - `CORS_ORIGINS`: comma-separated allowed origins, e.g. `http://localhost:5173,https://example.com`
+  - `BETTER_AUTH_SECRET`: 32+ chars secret for Better Auth
+  - `BETTER_AUTH_URL`: base URL of your app (e.g., `http://localhost:3000`)
+  - `BETTER_AUTH_GITHUB_CLIENT_ID` / `BETTER_AUTH_GITHUB_CLIENT_SECRET` (optional, if using GitHub provider)
+
+- **Better Auth setup**:
+  - Server instance: `src/utils/auth.ts` (uses Drizzle adapter and env vars).
+  - Handler: in `src/index.ts`, mounted at `app.all("/api/auth/*auth", toNodeHandler(auth))`.
+  - Global injector: `installAuth(app)` adds `req.auth = { session, user }` to every request.
+  - CORS: configured via `cors(corsOptions)` using `env.CORS_ORIGINS`. Ensure CORS runs before the Better Auth handler.
+
+- **Protecting routes**:
+  - Import `requireAuth` and add to routes that need authentication, e.g.:
+
+    ```ts
+    import { requireAuth } from "@/middlewares/auth.middleware.js";
+    router.put("/:id", validateUpdateUser, requireAuth, userController.updateUser);
+    router.delete("/:id", validateDeleteUser, requireAuth, userController.deleteUser);
+    ```
+
+  - For optional auth (no 401):
+
+    ```ts
+    import { attachAuth } from "@/middlewares/auth.middleware.js";
+    router.get("/me", attachAuth, (req, res) => res.json({ user: req.auth?.user ?? null }));
+    ```
+
+## Auth patterns (types + runtime)
+
+- **Files**:
+  - Runtime middleware: `src/middlewares/auth.middleware.ts`
+  - Types: `src/types/type.ts`
+
+- **Two ways to protect routes**:
+  - Middleware style (classic):
+    - Route: add `requireAuth`.
+    - Controller: type your handler parameter as `AuthedRequest<Params, ResBody, ReqBody, ReqQuery>` to get `req.auth` typed.
+    - Example:
+      ```ts
+      // route
+      router.put("/:id", validateUpdateUser, requireAuth, userController.updateUser);
+
+      // controller
+      import type { AuthedRequest } from "@/types/type.js";
+      export const updateUser = async (
+        req: AuthedRequest<{ id: string }, any, UpdateUserInput>,
+        res: Response
+      ) => { /* use req.auth.user */ };
+      ```
+
+  - Wrapper style (recommended):
+    - Wrap handler with `withRequiredAuth` to enforce auth and narrow `req`.
+    - Controller type: `AuthedHandler<...>` or explicit `AuthedRequest` in param.
+    - Example:
+      ```ts
+      // route
+      import { withRequiredAuth } from "@/middlewares/auth.middleware.js";
+      router.delete("/:id", validateDeleteUser, withRequiredAuth(userController.deleteUser));
+
+      // controller
+      import type { AuthedHandler } from "@/types/type.js";
+      export const deleteUser: AuthedHandler<{ id: string }> = async (req, res) => {
+        const caller = req.auth.user; // fully typed
+      };
+      ```
+
+- **Why two patterns?**
+  - Middleware runs at runtime; TypeScript can’t infer prior middleware on a specific route. Using `AuthedRequest` in controllers and/or the `withRequiredAuth` wrapper gives compile-time safety.
+
+- **Common TS error and fix**:
+  - If you pass an `AuthedHandler` directly to `router.METHOD` you may see an overload error.
+  - Quick fix: wrap → `router.put("/x", withRequiredAuth(controller))`.
+
+## Environment variables example
+
+```env
+DATABASE_URL="./dev.db"
+PORT=3000
+NODE_ENV=development
+BETTER_AUTH_SECRET="change-me-32+chars"
+CORS_ORIGINS=http://localhost:5173
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_GITHUB_CLIENT_ID=dummy
+BETTER_AUTH_GITHUB_CLIENT_SECRET=dummy
+```
+
+## Notes on database schema
+
+- Auth tables are defined in `src/drizzle/auth-schema.ts` and re-exported in `src/drizzle/schema.ts`.
+- Add your own tables in `schema.ts` and run your migration/push workflow to sync the database.
 
 ## Q&A: Creating a New API Endpoint
 
@@ -135,41 +239,25 @@ This guide provides a detailed overview of the advanced Express.js template stru
     ```typescript
     // src/api/v1/schemas/product.schema.ts
     import { z } from "zod";
-    import { registry } from "@/utils/openapiRegistry";
 
-    export const ProductSchema = registry.register(
-      "Product",
-      z.object({
-        id: z.string().uuid(),
-        name: z.string().min(3),
-        price: z.number().positive(),
-        createdAt: z.string().datetime(),
-        updatedAt: z.string().datetime(),
-      })
-    );
+    export const productSchema = z.object({
+      id: z.string().uuid(),
+      name: z.string().min(3),
+      price: z.number().positive(),
+      createdAt: z.string().datetime(),
+      updatedAt: z.string().datetime(),
+    });
 
-    export const CreateProductSchema = registry.register(
-      "CreateProduct",
-      z.object({
-        name: z.string().min(3),
-        price: z.number().positive(),
-      })
-    );
+    export const createProductSchema = z.object({
+      name: z.string().min(3),
+      price: z.number().positive(),
+    });
 
-    export const UpdateProductSchema = registry.register(
-      "UpdateProduct",
-      z.object({
-        name: z.string().min(3).optional(),
-        price: z.number().positive().optional(),
-      })
-    );
+    export const updateProductSchema = createProductSchema.partial();
 
-    export const ProductIdParam = registry.register(
-      "ProductIdParam",
-      z.object({
-        id: z.string().uuid(),
-      })
-    );
+    export const productParamsSchema = z.object({
+      id: z.string().uuid(),
+    });
     ```
 
     **Tip**: For `GET`, `PUT`, or `DELETE` operations that involve an `id` in the URL parameters, define a separate schema for the parameters (e.g., `ProductIdParam`). You typically don't include the `id` in the request body for these operations if it's already in the URL.
@@ -180,113 +268,106 @@ This guide provides a detailed overview of the advanced Express.js template stru
     ```typescript
     // src/api/v1/validators/product.validators.ts
     import validateRequest from "express-zod-safe";
-    import { CreateProductSchema, UpdateProductSchema } from "../schemas/product.schema";
+    import {
+      createProductSchema,
+      updateProductSchema,
+      productParamsSchema,
+    } from "../schemas/product.schema.js";
 
-    export const createProductValidator = validateRequest({
-      body: CreateProductSchema,
+    export const validateCreateProduct = validateRequest({ body: createProductSchema });
+    export const validateUpdateProduct = validateRequest({
+      params: productParamsSchema,
+      body: updateProductSchema,
     });
-
-    export const updateProductValidator = validateRequest({
-      body: UpdateProductSchema,
-    });
-
-    export const getProductByIdValidator = validateRequest({
-      params: ProductIdParam,
-    });
-
-    export const deleteProductValidator = validateRequest({
-      params: ProductIdParam,
-    });
+    export const validateGetProduct = validateRequest({ params: productParamsSchema });
+    export const validateDeleteProduct = validateRequest({ params: productParamsSchema });
     ```
 
-    **Tip**: `zod-express-middleware` allows you to validate `params`, `query`, and `body` separately. This ensures that only the expected parts of the request are validated against their respective schemas.
+    **Tip**: `express-zod-safe` allows you to validate `params`, `query`, and `body` separately. This ensures that only the expected parts of the request are validated against their respective schemas.
 
 3.  **Implement Controller (`src/api/v1/controllers/product.controller.ts`)**:
-    Create a controller file (e.g., `product.controller.ts`) in `src/api/v1/controllers/` to handle the business logic for your product endpoints. Use `try-catch` for error handling and `api-response` for consistent responses. Integrate with Drizzle ORM for database operations.
+    Create a controller file (e.g., `product.controller.ts`) in `src/api/v1/controllers/` to handle the business logic for your product endpoints. Use `tryCatch` for error handling and `api-response` for consistent responses. Integrate with Drizzle ORM for database operations.
 
     ```typescript
     // src/api/v1/controllers/product.controller.ts
-    import { db } from "@/drizzle/src"; // Assuming your Drizzle DB instance is exported from here
-    import { products } from "@/drizzle/src/db/schema"; // Your Drizzle schema
-    import { sendError, sendSuccess } from "@/utils/api-response"; // Import sendSuccess and sendError
+    import { db } from "@/drizzle/index.js";
+    import { productsTable } from "@/drizzle/schema.js";
+    import { sendError, sendSuccess } from "@/utils/api-response.js";
     import { tryCatch } from "@/utils/try-catch";
+    import { eq } from "drizzle-orm";
     import { Request, Response } from "express";
-    import { v4 as uuidv4 } from "uuid";
 
     export const createProduct = async (req: Request, res: Response) => {
-      const { data: newProductData, error } = await tryCatch(
+      const { data, error } = await tryCatch(
         db
-          .insert(products)
+          .insert(productsTable)
           .values({
-            id: uuidv4(),
             name: req.body.name,
             price: req.body.price,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
           })
-          .returning() // Use .returning() to get the inserted data
+          .returning(),
       );
-
-      if (error) {
-        return sendError(res, error.message, "CREATE_PRODUCT_FAILED", 400);
-      }
-      return sendSuccess(res, newProductData, 201);
+      if (error) return sendError(res, error.message, "CREATE_PRODUCT_FAILED", 400);
+      return sendSuccess(res, data, 201);
     };
 
-    export const getProducts = async (_req: Request, res: Response) => {
-      const { data: allProducts, error } = await tryCatch(db.select().from(products));
-
-      if (error) {
-        return sendError(res, error.message, "FETCH_PRODUCTS_FAILED", 500);
-      }
-      return sendSuccess(res, allProducts);
+    export const listProducts = async (_req: Request, res: Response) => {
+      const { data, error } = await tryCatch(
+        db.select().from(productsTable),
+      );
+      if (error) return sendError(res, error.message, "FETCH_PRODUCTS_FAILED", 500);
+      return sendSuccess(res, data);
     };
 
-    // Add more controller functions for getProductById, updateProduct, deleteProduct etc.
-    // Example for getProductById:
-    // export const getProductById = async (req: Request, res: Response) => {
-    //   const { data: product, error } = await tryCatch(
-    //     db.select().from(products).where(eq(products.id, req.params.id)),
-    //   );
-    //   if (error) {
-    //     return sendError(res, error.message, "FETCH_PRODUCT_FAILED", 400);
-    //   }
-    //   if (!product || product.length === 0) {
-    //     return sendError(res, "Product not found", "PRODUCT_NOT_FOUND", 404);
-    //   }
-    //   return sendSuccess(res, product[0]);
-    // };
+    export const getProduct = async (req: Request<{ id: string }>, res: Response) => {
+      const { data, error } = await tryCatch(
+        db.select().from(productsTable).where(eq(productsTable.id, req.params.id)),
+      );
+      if (error) return sendError(res, error.message, "FETCH_PRODUCT_FAILED", 400);
+      if (!data || data.length === 0)
+        return sendError(res, "Product not found", "PRODUCT_NOT_FOUND", 404);
+      return sendSuccess(res, data[0]);
+    };
     ```
 
     **Tip**:
     - **Error Handling Pattern**: Always wrap your asynchronous database operations (or any potentially failing async code) with `tryCatch`. This utility returns an object `{ data, error }`.
     - **Consistent Responses**: After `tryCatch`, check for `error`. If an error exists, use `sendError(res, error.message, "ERROR_CODE", statusCode)` for standardized error responses. Otherwise, use `sendSuccess(res, data, statusCode)` for successful responses.
-    - **Drizzle ORM**: Ensure you import `db` from `src/drizzle/src` and your relevant schema (e.g., `products`). Use Drizzle's methods like `insert().values().returning()` to get the inserted data back.
+    - **Drizzle ORM**: Ensure you import `db` from `@/drizzle/index.js` and your relevant schema/table from `@/drizzle/schema.js`. Use Drizzle's methods like `insert().values().returning()` to get the inserted data back.
 
 4.  **Define Routes (`src/api/v1/routes/product.route.ts`)**:
     Create a route file (e.g., `product.route.ts`) in `src/api/v1/routes/`. Define your API paths, link them to the controller functions, and register them with the OpenAPI registry.
 
     ```typescript
     // src/api/v1/routes/product.route.ts
-    import { createProduct, getProducts } from "@/api/v1/controllers/product.controller";
-    import { createProductValidator } from "@/api/v1/validators/product.validators";
-    import { CreateProductSchema, ProductSchema } from "@/api/v1/schemas/product.schema";
-    import { registry } from "@/utils/openapiRegistry";
     import { Router } from "express";
+    import { z } from "zod";
+    import { registry } from "@/utils/openapiRegistry.js";
+    import {
+      createProduct,
+      listProducts,
+      getProduct,
+    } from "@/api/v1/controllers/product.controller.js";
+    import {
+      validateCreateProduct,
+      validateGetProduct,
+    } from "@/api/v1/validators/product.validators.js";
+    import {
+      createProductSchema,
+      productSchema,
+      productParamsSchema,
+    } from "@/api/v1/schemas/product.schema.js";
 
-    const router = Router();
+    const productRouter = Router();
 
     registry.registerPath({
       method: "post",
-      path: "/products",
-      tags: ["Products"],
+      path: "/api/v1/products",
       summary: "Create a new product",
       request: {
         body: {
           content: {
-            "application/json": {
-              schema: CreateProductSchema,
-            },
+            "application/json": { schema: createProductSchema },
           },
         },
       },
@@ -294,22 +375,29 @@ This guide provides a detailed overview of the advanced Express.js template stru
         201: {
           description: "Product created successfully",
           content: {
-            "application/json": {
-              schema: z.object({
-                success: z.boolean(),
-                message: z.string(),
-                data: ProductSchema,
-              }),
-            },
+            "application/json": { schema: productSchema },
           },
         },
       },
     });
 
-    router.route("/products").post(createProductValidator, createProduct);
-    router.route("/products").get(getProducts);
+    registry.registerPath({
+      method: "get",
+      path: "/api/v1/products/:id",
+      summary: "Get a product by ID",
+      request: { params: productParamsSchema },
+      responses: {
+        200: { content: { "application/json": { schema: productSchema } } },
+        404: { description: "Product not found" },
+      },
+    });
 
-    export default router;
+    // Express routes mounted under /api/v1/products in src/index.ts
+    productRouter.post("/", validateCreateProduct, createProduct);
+    productRouter.get("/", listProducts);
+    productRouter.get("/:id", validateGetProduct, getProduct);
+
+    export default productRouter;
     ```
 
     **Tip**:
@@ -324,6 +412,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
     // src/api/v1/docs/openapi.ts
     // ... existing imports ...
     import "@/api/v1/routes/product.route"; // Add this line
+    // import "@/api/v1/schemas/product.schema"; // Optional: if you split schemas
 
     export function generateOpenApiDocument() {
       // ...
@@ -335,17 +424,17 @@ This guide provides a detailed overview of the advanced Express.js template stru
 6.  **Mount Routes in `src/index.ts`**:
     Finally, import and mount your new product routes in `src/index.ts` under the appropriate API version.
 
-        ```typescript
-        // src/index.ts
-        // ... existing imports ...
-        import productRoutes from "@/api/v1/routes/product.route.js"; // Add this line
+    ```typescript
+    // src/index.ts
+    // ... existing imports ...
+    import productRoutes from "@/api/v1/routes/product.route.js"; // Add this line
 
-        // ...
-        // API V1 Routes
-        app.use("/api/v1", healthRoutes);
-        app.use("/api/v1/users", userRoutes);
-        app.use("/api/v1/products", productRoutes); // Add this line
-        // ...
-        ```
+    // ...
+    // API V1 Routes
+    app.use("/api/v1", healthRoutes);
+    app.use("/api/v1/users", userRoutes);
+    app.use("/api/v1/products", productRoutes); // Add this line
+    // ...
+    ```
 
     </content>

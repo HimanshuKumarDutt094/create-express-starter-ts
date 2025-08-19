@@ -1,14 +1,10 @@
+import { requireAuth } from "@/middlewares/auth.middleware.js";
 import { registry } from "@/utils/openapiRegistry.js";
 import { Router } from "express";
 import { z } from "zod";
 import { userController } from "../controllers/user.controller.js";
+import { createUserSchema, updateUserSchema, userParamsSchema } from "../schemas/user.schema.js";
 import {
-  createUserSchema,
-  updateUserSchema,
-  userParamsSchema,
-} from "../schemas/user.schema.js";
-import {
-  validateCreateUser,
   validateDeleteUser,
   validateGetUser,
   validateUpdateUser,
@@ -17,43 +13,6 @@ import {
 const userRouter = Router();
 
 // --- OpenAPI Path Registration ---
-// Register the POST /users endpoint for OpenAPI documentation
-registry.registerPath({
-  method: "post",
-  path: "/api/v1/users",
-  summary: "Create a new user",
-  description: "Registers a new user in the system.",
-  request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: createUserSchema, // Links to our Zod schema for request body
-        },
-      },
-    },
-  },
-  responses: {
-    201: {
-      description: "User created successfully",
-      content: {
-        "application/json": {
-          schema: createUserSchema, // Using createUserSchema as userResponseSchema is not exported
-        },
-      },
-    },
-    400: {
-      description:
-        "Invalid input provided (e.g., missing fields, invalid email)",
-      content: {
-        "application/json": {
-          schema: z
-            .object({ errors: z.array(z.any()) })
-            .openapi({ description: "Details of validation errors" }),
-        },
-      },
-    },
-  },
-});
 
 // Register the GET /users endpoint for OpenAPI documentation
 registry.registerPath({
@@ -169,7 +128,6 @@ registry.registerPath({
 });
 
 // --- Express Routes ---
-userRouter.post("/", validateCreateUser, userController.createUser);
 
 userRouter.get("/", userController.listUsers);
 
@@ -178,9 +136,10 @@ userRouter.get("/:id", validateGetUser, userController.getUser);
 userRouter.put(
   "/:id",
   validateUpdateUser, // validateUpdateUser includes params and body validation
-  userController.updateUser,
+  requireAuth,
+  userController.updateUser
 );
 
-userRouter.delete("/:id", validateDeleteUser, userController.deleteUser);
+userRouter.delete("/:id", validateDeleteUser, requireAuth, userController.deleteUser);
 
 export default userRouter;

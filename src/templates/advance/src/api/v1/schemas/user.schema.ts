@@ -7,14 +7,10 @@ export const createUserSchema = z
       description: "Name of the user",
       example: "John Doe",
     }),
-    age: z.coerce
-      .number()
-      .int()
-      .positive({ error: "Age must be a positive integer" })
-      .meta({
-        description: "Age of the user",
-        example: 30,
-      }),
+    age: z.coerce.number().int().positive({ error: "Age must be a positive integer" }).meta({
+      description: "Age of the user",
+      example: 30,
+    }),
     email: z.email({ error: "Invalid email" }).meta({
       description: "Email address of the user",
       example: "test@gmail.com",
@@ -31,14 +27,10 @@ export const updateUserSchema = createUserSchema.partial().meta({
 // Params schema
 export const userParamsSchema = z
   .object({
-    id: z.coerce
-      .number()
-      .int()
-      .positive({ error: "id must be a positive integer" })
-      .meta({
-        description: "ID of the user",
-        example: 1,
-      }),
+    id: z.coerce.string().meta({
+      description: "ID of the user",
+      example: "abcd",
+    }),
   })
   .meta({
     description: "Schema for user ID parameters",
