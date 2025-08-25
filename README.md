@@ -5,12 +5,16 @@
 ## Features
 
 - **Basic Express Setup**: A minimal Express.js application with essential configurations.
-- **Advance Express Setup**: A more feature-rich Express.js application with a structured API, including:
-  - API versioning (`/api/v1`)
-  - Controllers, Routes, and Schemas
-  - Utility functions (e.g., `api-response`, `try-catch`, `env`)
-  - OpenAPI documentation setup
-  - Drizzle ORM integration (schema and config)
+- **Advance Express Setup**: A feature-rich Express.js application with:
+  - API versioning under `/api/v1`
+  - Controllers, routes, schemas, and validators (Zod + `express-zod-safe`)
+  - Authentication built-in with Better Auth (DB-backed) and helpers to protect routes:
+    - `requireAuth` middleware, `attachAuth` (optional auth), and `withRequiredAuth` wrapper
+    - Global `req.auth` injection via `installAuth(app)`
+  - OpenAPI/Swagger docs served at `/docs/v1`
+  - Drizzle ORM integration with auth tables and room for app tables
+  - Strong utilities: `api-response`, `try-catch`, `env`, `openapiRegistry`, `auth`
+  - Type-safe authed handlers and request typings via `src/types/express.d.ts`
 - **Git Initialization**: Option to initialize a Git repository.
 - **Dependency Installation**: Option to install project dependencies using your preferred package manager (npm, yarn, pnpm, or bun).
 
@@ -32,11 +36,11 @@
 - **Helmet**: Helps secure Express apps by setting various HTTP headers.
 - **Swagger UI Express**: Serves auto-generated API documentation via Swagger UI.
 - **`@asteasolutions/zod-to-openapi`**: Generates OpenAPI 3.x documentation from Zod schemas and Express routes.
-- **Drizzle ORM**: A modern TypeScript ORM for SQL databases.
-- **Drizzle Kit**: CLI tool for Drizzle ORM, used for migrations and schema management.
-- **Better SQLite3**: A fast and simple SQLite3 library for Node.js, used as the database driver for Drizzle ORM in the advance template.
+- **Drizzle ORM** and **Drizzle Kit**: ORM and tooling for migrations and schema management.
+- **Better SQLite3**: SQLite driver used with Drizzle in the advanced template (swapable).
 - **`cors`**: Middleware to enable Cross-Origin Resource Sharing.
-- **`zod-express-middleware`**: Integrates Zod validation with Express middleware for request validation.
+- **`express-zod-safe`**: Request validation middleware powered by Zod.
+- **Better Auth**: Authentication with session/user context exposed as `req.auth` and route protection helpers.
 
 ## Installation
 
@@ -114,16 +118,23 @@ The "Advance Express Setup" provides a robust structure for scalable Express app
 │   │       └── validators/
 │   │           └── user.validators.ts
 │   ├── drizzle/
-│   │   ├── drizle.config.ts
-│   │   └── src/
-│   │       ├── db/
-│   │       │   └── schema.ts
-│   │       └── index.ts
+│   │   ├── index.ts
+│   │   ├── schema.ts
+│   │   └── auth-schema.ts
+│   ├── docs/
+│   │   └── docs.route.ts
+│   ├── middlewares/
+│   │   ├── swaggerMiddleware.ts
+│   │   └── auth.middleware.ts
+│   ├── services/
+│   ├── types/
+│   │   └── express.d.ts
 │   ├── utils/
 │   │   ├── api-response.ts
 │   │   ├── env.ts
 │   │   ├── openapiRegistry.ts
-│   │   └── try-catch.ts
+│   │   ├── try-catch.ts
+│   │   └── auth.ts
 │   ├── index.ts
 │   └── zod-extend.ts
 ├── .env
@@ -132,6 +143,16 @@ The "Advance Express Setup" provides a robust structure for scalable Express app
 ├── tsconfig.json
 └── ...
 ```
+
+## Advance Template Highlights
+
+- **Auth-first routing**: Protect endpoints with `requireAuth` or wrap controllers with `withRequiredAuth`. Add optional session via `attachAuth`.
+- **Typed `req.auth`**: Global auth injection with TypeScript types for safer controllers and handlers.
+- **Validations**: Zod schemas + `express-zod-safe` validators per route.
+- **Docs**: OpenAPI registry + Swagger UI at `/docs/v1`.
+- **DB**: Drizzle with built-in Better Auth tables; extend `src/drizzle/schema.ts` for your app.
+- **ENV & CORS**: `@t3-oss/env-core` validation and configurable `CORS_ORIGINS`.
+- **Utilities**: Consistent responses (`api-response`), error wrapper (`try-catch`), shared OpenAPI registry (`openapiRegistry`), and `auth` server setup.
 
 ## OpenAPI Documentation with Zod
 
