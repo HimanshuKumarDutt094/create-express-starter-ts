@@ -5,7 +5,7 @@ declare global {
   namespace Express {
     interface Request {
       params: ParamsDictionary & {
-        id: number;
+        id: string; // Changed from number to string to match route params
       };
       // Populated by our Better Auth middleware
       auth?: {

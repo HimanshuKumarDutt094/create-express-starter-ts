@@ -146,13 +146,26 @@ The "Advance Express Setup" provides a robust structure for scalable Express app
 
 ## Advance Template Highlights
 
-- **Auth-first routing**: Protect endpoints with `requireAuth` or wrap controllers with `withRequiredAuth`. Add optional session via `attachAuth`.
-- **Typed `req.auth`**: Global auth injection with TypeScript types for safer controllers and handlers.
-- **Validations**: Zod schemas + `express-zod-safe` validators per route.
-- **Docs**: OpenAPI registry + Swagger UI at `/docs/v1`.
-- **DB**: Drizzle with built-in Better Auth tables; extend `src/drizzle/schema.ts` for your app.
-- **ENV & CORS**: `@t3-oss/env-core` validation and configurable `CORS_ORIGINS`.
-- **Utilities**: Consistent responses (`api-response`), error wrapper (`try-catch`), shared OpenAPI registry (`openapiRegistry`), and `auth` server setup.
+The advanced template comes with a comprehensive set of features for building production-ready APIs:
+
+### Core Features
+- **Authentication**: Built-in with Better Auth, including session management and route protection
+- **Type Safety**: Full TypeScript support with strict typing throughout the application
+- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
+- **Database**: Drizzle ORM with SQLite (easily swappable to other databases)
+- **Validation**: Request validation using Zod schemas
+- **Logging**: Structured logging with multiple log levels
+- **Caching**: Valkey (Redis) integration for high-performance caching
+- **Environment Management**: Type-safe environment variable handling
+
+### Key Integrations
+- **Better Auth**: For authentication and session management
+- **Drizzle ORM**: Type-safe database access
+- **Zod**: For schema validation and type safety
+- **OpenAPI**: For API documentation
+- **Valkey**: For caching and rate limiting
+
+For detailed configuration and usage, see the [Guides](./guides.md) documentation.
 
 ## OpenAPI Documentation with Zod
 

@@ -94,8 +94,66 @@ This guide provides a detailed overview of the advanced Express.js template stru
   - **Where to add code**: Use `requireAuth` to protect routes or `attachAuth` for optional session.
 
 - **`src/services/`**:
-  - This directory is intended for business logic that is independent of the Express request/response cycle. Services can encapsulate interactions with external APIs, complex calculations, or database operations.
-  - **Where to add code**: Create new service files for reusable business logic that can be called by controllers or other parts of your application.
+  - This directory contains reusable services that handle business logic, external integrations, and other cross-cutting concerns.
+  
+  - **`valkey.ts`**: Production-ready Valkey (Redis) client with TypeScript support.
+    - **Features**:
+      - Type-safe operations with Zod schema validation
+      - Automatic JSON serialization/deserialization
+      - TTL support with sensible defaults
+      - Connection pooling and error handling
+    - **Usage**:
+      ```typescript
+      import { ValkeyGlideStore } from '@/services/valkey';
+      import { z } from 'zod';
+      
+      const userSchema = z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string().email()
+      });
+      
+      const userStore = await ValkeyGlideStore.createFromEnv(userSchema, {
+        prefix: 'user:',
+        defaultTTLSeconds: 300 // 5 minutes
+      });
+      
+      // Basic operations
+      await userStore.set('123', { id: '123', name: 'John', email: 'john@example.com' });
+      const user = await userStore.get('123');
+      await userStore.del('123');
+      ```
+
+  - **`logger.ts`**: Configurable logging service with multiple log levels and pretty-printing.
+    - **Features**:
+      - Multiple log levels: debug, info, warn, error
+      - JSON formatting in production, colored output in development
+      - Contextual logging with structured data
+      - Performance-optimized for production
+    - **Usage**:
+      ```typescript
+      import { createLogger } from '@/services/logger';
+      
+      // Create a logger instance with context
+      const logger = createLogger('UserService');
+      
+      // Log messages with different levels
+      logger.debug('Debug message', { userId: 123 });
+      logger.info('User logged in', { userId: 123 });
+      logger.warn('Unusual activity detected', { userId: 123 });
+      logger.error('Failed to process request', { error: err });
+      
+      // In development, logs are colored and formatted for readability
+      // In production, logs are output as JSON for better parsing
+      ```
+    - **Configuration**:
+      - `LOG_LEVEL`: Set the minimum log level (debug, info, warn, error)
+      - `NODE_ENV`: Automatically configures formatting based on environment
+
+  - **Where to add code**: 
+    - Create new service files for reusable business logic
+    - Use the logger for all application logging needs
+    - Use Valkey for caching, rate limiting, and distributed locking
 
 - **`src/types/express.d.ts`**:
   - Contains custom TypeScript type declarations for Express.js, such as extending the `Request` object.
@@ -129,6 +187,58 @@ This guide provides a detailed overview of the advanced Express.js template stru
     - Define the API routes and link them to controllers and validators in `src/api/v1/routes/`.
     - Ensure new routes and schemas are imported in `src/api/v1/docs/openapi.ts` for documentation.
 5.  **View Documentation**: Start your application and navigate to `http://localhost:3000/docs/v1` to view the interactive API documentation.
+
+## Core Services
+
+### Logging
+
+The application uses a structured logging system with the following features:
+
+- **Log Levels**:
+  - `debug`: Detailed debug information (only shown when `LOG_LEVEL=debug`)
+  - `info`: General application flow information
+  - `warn`: Warnings that don't prevent operation but might indicate issues
+  - `error`: Errors that affect functionality
+
+- **Environment Variables**:
+  ```env
+  LOG_LEVEL=info  # Set to 'debug' for verbose logging
+  NODE_ENV=development  # Affects log formatting
+  ```
+
+### Caching with Valkey
+
+The application uses Valkey (Redis) for caching with the following features:
+
+- **Configuration**:
+  ```env
+  VALKEY_HOST=127.0.0.1
+  VALKEY_PORT=6379
+  VALKEY_TLS=false
+  USER_CACHE_TTL=300  # 5 minutes
+  ```
+
+- **Best Practices**:
+  - Always set appropriate TTL for cached items
+  - Use consistent key patterns (e.g., `user:123`)
+  - Invalidate cache on data updates
+  - Handle cache misses gracefully
+
+- **Example Usage**:
+  ```typescript
+  // In a service
+  async function getUser(id: string) {
+    const cacheKey = `user:${id}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+    
+    const user = await db.queryUser(id);
+    if (user) {
+      await cache.set(cacheKey, user, { ttl: 300 });
+    }
+    return user;
+  }
+  ```
 
 ## Authentication & CORS
 

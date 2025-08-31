@@ -13,9 +13,12 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.string(),
     BETTER_AUTH_GITHUB_CLIENT_ID: z.string().nonempty(),
     BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string().nonempty(),
+    // Cache configuration
+    USER_CACHE_TTL: z.string().default("300"), // 5 minutes in seconds
+    LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   },
   runtimeEnvStrict: {
-    PORT: process.env.port,
+    PORT: process.env.PORT,
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
@@ -23,5 +26,7 @@ export const env = createEnv({
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     BETTER_AUTH_GITHUB_CLIENT_ID: process.env.BETTER_AUTH_GITHUB_CLIENT_ID,
     BETTER_AUTH_GITHUB_CLIENT_SECRET: process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
+    USER_CACHE_TTL: process.env.USER_CACHE_TTL,
+    LOG_LEVEL: process.env.LOG_LEVEL,
   },
 });

@@ -32,14 +32,14 @@ registry.registerPath({
   },
 });
 
-// Register the GET /users/{id} endpoint for OpenAPI documentation
+// Register the GET /users/:id endpoint for OpenAPI documentation
 registry.registerPath({
   method: "get",
-  path: "/api/v1/users/:id",
+  path: "/api/v1/users/{id}", // OpenAPI uses {id} for path parameters
   summary: "Get user by ID",
   description: "Retrieves a single user by their unique identifier.",
   request: {
-    params: z.object({ id: userParamsSchema }),
+    params: userParamsSchema,
   },
   responses: {
     200: {
@@ -73,14 +73,14 @@ registry.registerPath({
   },
 });
 
-// Register the PUT /users/{id} endpoint for OpenAPI documentation
+// Register the PUT /users/:id endpoint for OpenAPI documentation
 registry.registerPath({
   method: "put",
-  path: "/api/v1/users/:id",
+  path: "/api/v1/users/{id}", // OpenAPI uses {id} for path parameters
   summary: "Update user by ID",
   description: "Updates an existing user's information.",
   request: {
-    params: z.object({ id: userParamsSchema }),
+    params: userParamsSchema,
     body: {
       content: {
         "application/json": {
@@ -108,14 +108,14 @@ registry.registerPath({
   },
 });
 
-// Register the DELETE /users/{id} endpoint for OpenAPI documentation
+// Register the DELETE /users/:id endpoint for OpenAPI documentation
 registry.registerPath({
   method: "delete",
-  path: "/api/v1/users/:id",
+  path: "/api/v1/users/{id}", // OpenAPI uses {id} for path parameters
   summary: "Delete user by ID",
   description: "Deletes a user from the system.",
   request: {
-    params: z.object({ id: userParamsSchema }),
+    params: userParamsSchema,
   },
   responses: {
     204: {
