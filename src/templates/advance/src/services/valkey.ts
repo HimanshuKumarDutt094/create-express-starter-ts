@@ -1,4 +1,3 @@
-// valkey-glide-store.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GlideClient, TimeUnit } from "@valkey/valkey-glide";
 import type express from "express";
@@ -7,19 +6,17 @@ import { createLogger } from "./logger";
 
 const logger = createLogger("Valkey");
 
-// Type definitions for Valkey Glide client options
 type SetOptions = {
-  ex?: number; // Expire time in seconds
-  px?: number; // Expire time in milliseconds
-  nx?: boolean; // Only set the key if it does not exist
-  xx?: boolean; // Only set the key if it already exists
-  keepttl?: boolean; // Retain the time to live associated with the key
+  ex?: number;
+  px?: number;
+  nx?: boolean;
+  xx?: boolean;
+  keepttl?: boolean;
 };
 
 /**
- * Production-minded Valkey/GLIDE store.
- * - Generic T inferred from schema: z.infer<typeof schema>
- * - Stores { __sv: number, payload: T } to enable schema migrations
+ * Valkey/Glide-backed typed store.
+ * Stores values as { __sv: number, payload: T } and validates with a Zod schema.
  */
 
 export type StoreOpts = {
@@ -115,16 +112,12 @@ export class ValkeyGlideStore<T> {
   private sKey(k: string) {
     return this.keySerializer(k);
   }
-
-  // Internal wrapper to produce storage envelope
   private wrap(value: T) {
     return {
       __sv: this.schemaVersion,
       payload: value,
     };
   }
-
-  // set value with optional TTL
   async set(key: string, value: T, opts?: { ttlSeconds?: number | null }) {
     if (this.closed) throw new Error("store closed");
     const parsed = this.schema.parse(value); // throws on invalid
@@ -136,7 +129,6 @@ export class ValkeyGlideStore<T> {
 
     try {
       if (ttl != null) {
-        // Set with TTL using EXPIRE command
         await this.client.set(cacheKey, envelope);
         await this.client.expire(cacheKey, Math.floor(ttl));
         logger.debug(`Successfully set key with TTL`, { key: cacheKey, ttl });
@@ -166,20 +158,16 @@ export class ValkeyGlideStore<T> {
       }
       try {
         const parsed = JSON.parse(raw);
-        // quick shape check
-        if (typeof parsed !== "object" || parsed === null || !("payload" in parsed)) {
+        if (typeof parsed !== 'object' || parsed === null || !('payload' in parsed)) {
           logger.error(`[VALKEY] Invalid cache format for key: ${cacheKey}`);
-          throw new Error("envelope-mismatch");
+          throw new Error('envelope-mismatch');
         }
-        // optional: handle schema version migrations here
         const payload = parsed.payload;
-        const validated = this.schema.parse(payload); // throws if incompatible
+        const validated = this.schema.parse(payload);
         logger.debug(`Successfully retrieved and validated key`, { key: cacheKey });
         return validated;
       } catch (parseError) {
-        // Corrupt or incompatible data
         logger.error(`[VALKEY] Error parsing cache data for key ${cacheKey}:`, parseError);
-
         if (this.deleteCorrupt) {
           try {
             logger.warn(`Deleting corrupted cache entry`, { key: cacheKey });
@@ -188,7 +176,6 @@ export class ValkeyGlideStore<T> {
             logger.error(`[VALKEY] Failed to delete corrupted key ${cacheKey}:`, delError);
           }
         }
-
         if (this.throwOnParse) throw parseError;
         return null;
       }
@@ -202,7 +189,6 @@ export class ValkeyGlideStore<T> {
     return (this.client as any).del(this.sKey(key));
   }
 
-  // set if absent, atomic NX with expiry if supported
   async setIfAbsent(key: string, value: T, ttlSeconds?: number | null) {
     const parsed = this.schema.parse(value);
     const envelope = JSON.stringify(this.wrap(parsed));
@@ -238,7 +224,25 @@ export class ValkeyGlideStore<T> {
     return (this.client as any).ttl(this.sKey(key));
   }
 
-  // express middleware helper: attaches this store to req.app.locals[valkeyStoreKey]
+  async incrBy(key: string, amount = 1) {
+    try {
+      const res = await (this.client as any).incrby(this.sKey(key), amount);
+      return typeof res === "number" ? res : Number(res);
+    } catch (error) {
+      logger.error(`[VALKEY] incrBy error for key ${this.sKey(key)}:`, error);
+      throw error;
+    }
+  }
+
+  async expire(key: string, seconds: number) {
+    try {
+      return await (this.client as any).expire(this.sKey(key), Math.floor(seconds));
+    } catch (error) {
+      logger.error(`[VALKEY] expire error for key ${this.sKey(key)}:`, error);
+      throw error;
+    }
+  }
+
   expressMiddleware(locKey = "valkeyStore") {
     return (req: express.Request, _res: express.Response, next: express.NextFunction) => {
       if (!req.app.locals) {

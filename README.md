@@ -1,22 +1,13 @@
 # create-express-starter-ts
 
-`create-express-starter-ts` is a command-line interface (CLI) tool that helps you quickly set up a new Express.js project. It provides options to generate either a basic Express application or an advanced Express application with a more comprehensive structure, including API versioning, controllers, routes, schemas, and utilities.
+A small, opinionated starter for TypeScript + Express APIs. Choose a minimal setup or an advanced layout with useful defaults for building APIs.
 
-## Features
+## What it includes
 
-- **Basic Express Setup**: A minimal Express.js application with essential configurations.
-- **Advance Express Setup**: A feature-rich Express.js application with:
-  - API versioning under `/api/v1`
-  - Controllers, routes, schemas, and validators (Zod + `express-zod-safe`)
-  - Authentication built-in with Better Auth (DB-backed) and helpers to protect routes:
-    - `requireAuth` middleware, `attachAuth` (optional auth), and `withRequiredAuth` wrapper
-    - Global `req.auth` injection via `installAuth(app)`
-  - OpenAPI/Swagger docs served at `/docs/v1`
-  - Drizzle ORM integration with auth tables and room for app tables
-  - Strong utilities: `api-response`, `try-catch`, `env`, `openapiRegistry`, `auth`
-  - Type-safe authed handlers and request typings via `src/types/express.d.ts`
-- **Git Initialization**: Option to initialize a Git repository.
-- **Dependency Installation**: Option to install project dependencies using your preferred package manager (npm, yarn, pnpm, or bun).
+- **Basic template**: Minimal Express app with a simple dev setup.
+- **Advanced template**: Organized API layout (routes, controllers, Zod schemas) plus optional OpenAPI docs and Drizzle ORM scaffolding.
+- **Database choices**: SQLite by default; Neon Postgres is supported and can be selected during scaffolding or configured later.
+- **Options**: The CLI can initialize a Git repo and install dependencies for you.
 
 ## Technologies Used
 
@@ -38,6 +29,8 @@
 - **`@asteasolutions/zod-to-openapi`**: Generates OpenAPI 3.x documentation from Zod schemas and Express routes.
 - **Drizzle ORM** and **Drizzle Kit**: ORM and tooling for migrations and schema management.
 - **Better SQLite3**: SQLite driver used with Drizzle in the advanced template (swapable).
+- **`@neondatabase/serverless`**: Serverless PostgreSQL driver for Neon database integration.
+- **`@valkey/valkey-glide`**: High-performance Valkey (Redis-compatible) client for caching and data storage.
 - **`cors`**: Middleware to enable Cross-Origin Resource Sharing.
 - **`express-zod-safe`**: Request validation middleware powered by Zod.
 - **Better Auth**: Authentication with session/user context exposed as `req.auth` and route protection helpers.
@@ -74,8 +67,9 @@ The CLI will prompt you for the following information:
 
 1.  **Project Directory**: Where you would like to create your new project (e.g., `.` for the current directory, or a new directory name like `my-express-app`).
 2.  **Express Setup Type**: Choose between "Basic Express Setup" and "Advance Express Setup".
-3.  **Initialize Git Repository**: Confirm if you want to initialize a Git repository in your new project.
-4.  **Install Dependencies**: Confirm if you want to install dependencies for your new project.
+3.  **Database Choice** (Advance template only): Choose between SQLite (default) or Neon PostgreSQL.
+4.  **Initialize Git Repository**: Confirm if you want to initialize a Git repository in your new project.
+5.  **Install Dependencies**: Confirm if you want to install dependencies for your new project.
 
 ### Example
 
@@ -125,8 +119,13 @@ The "Advance Express Setup" provides a robust structure for scalable Express app
 │   │   └── docs.route.ts
 │   ├── middlewares/
 │   │   ├── swaggerMiddleware.ts
+│   │   ├── rateLimit.middleware.ts
 │   │   └── auth.middleware.ts
 │   ├── services/
+│   │   ├── logger.ts
+│   │   ├── valkey-store.ts
+│   │   ├── valkey.ts
+│   │   └── valkey.md
 │   ├── types/
 │   │   └── express.d.ts
 │   ├── utils/
@@ -149,16 +148,19 @@ The "Advance Express Setup" provides a robust structure for scalable Express app
 The advanced template comes with a comprehensive set of features for building production-ready APIs:
 
 ### Core Features
+
 - **Authentication**: Built-in with Better Auth, including session management and route protection
 - **Type Safety**: Full TypeScript support with strict typing throughout the application
 - **API Documentation**: Auto-generated OpenAPI/Swagger documentation
-- **Database**: Drizzle ORM with SQLite (easily swappable to other databases)
+- **Database**: Drizzle ORM with SQLite or Neon PostgreSQL (easily configurable)
 - **Validation**: Request validation using Zod schemas
 - **Logging**: Structured logging with multiple log levels
 - **Caching**: Valkey (Redis) integration for high-performance caching
 - **Environment Management**: Type-safe environment variable handling
+- **Rate limiting**: Limits repeated requests using Valkey-backed counters to prevent abuse.
 
 ### Key Integrations
+
 - **Better Auth**: For authentication and session management
 - **Drizzle ORM**: Type-safe database access
 - **Zod**: For schema validation and type safety

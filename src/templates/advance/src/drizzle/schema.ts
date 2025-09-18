@@ -1,2 +1,2 @@
-export * from "./auth-schema";
+export * from "./auth-schema.sqlite";
 //your non auth tables here

@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",
+    "@neondatabase/serverless": "^1.0.1",
     "@t3-oss/env-core": "^0.13.8",
     "@valkey/valkey-glide": "^2.0.1",
     "axios": "^1.11.0",
@@ -52,5 +53,9 @@
     "express-zod-safe": "^2",
     "helmet": "^8.1.0",
     "swagger-ui-express": "^5.0.1"
+  }
+  ,
+  "optionalDependencies": {
+    "express-rate-limit": "^8.1.0"
   }
 }

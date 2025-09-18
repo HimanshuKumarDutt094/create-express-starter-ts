@@ -10,7 +10,7 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
-    provider: "sqlite",
+    provider: "pg",
     // If you generate the schema with Better Auth CLI, remove custom mapping.
     // You can also pass { usePlural: true } if you pluralize table names.
   }),

@@ -186,7 +186,7 @@ This guide provides a detailed overview of the advanced Express.js template stru
     - Implement the business logic in `src/api/v1/controllers/`.
     - Define the API routes and link them to controllers and validators in `src/api/v1/routes/`.
     - Ensure new routes and schemas are imported in `src/api/v1/docs/openapi.ts` for documentation.
-5.  **View Documentation**: Start your application and navigate to `http://localhost:3000/docs/v1` to view the interactive API documentation.
+5.  **View Documentation**: Start your application and navigate to your configured `BETTER_AUTH_URL` followed by `/docs/v1` (e.g. `http://localhost:3000/docs/v1` in local development).
 
 ## Core Services
 
@@ -246,9 +246,9 @@ The application uses Valkey (Redis) for caching with the following features:
   - `DATABASE_URL`: path/connection string
   - `PORT`: server port
   - `NODE_ENV`: development | production | test
-  - `CORS_ORIGINS`: comma-separated allowed origins, e.g. `http://localhost:5173,https://example.com`
+  - `CORS_ORIGINS`: comma-separated allowed origins, e.g. `http://localhost:5173,https://example.com` or your production origins. Leave empty to allow non-browser tools.
   - `BETTER_AUTH_SECRET`: 32+ chars secret for Better Auth
-  - `BETTER_AUTH_URL`: base URL of your app (e.g., `http://localhost:3000`)
+  - `BETTER_AUTH_URL`: base URL of your app (e.g., `https://api.example.com` or `http://localhost:3000` for local dev). When not set, logs fall back to the server host and port.
   - `BETTER_AUTH_GITHUB_CLIENT_ID` / `BETTER_AUTH_GITHUB_CLIENT_SECRET` (optional, if using GitHub provider)
 
 - **Better Auth setup**:
@@ -256,6 +256,7 @@ The application uses Valkey (Redis) for caching with the following features:
   - Handler: in `src/index.ts`, mounted at `app.all("/api/auth/*auth", toNodeHandler(auth))`.
   - Global injector: `installAuth(app)` adds `req.auth = { session, user }` to every request.
   - CORS: configured via `cors(corsOptions)` using `env.CORS_ORIGINS`. Ensure CORS runs before the Better Auth handler.
+  - Rate limiting & anti-spam: The template includes a global rate limiter (`express-rate-limit`) and a lightweight spam protection middleware that triggers on bursty requests to the same URL. These are enabled by default and tuned for production vs development environments.
 
 - **Protecting routes**:
   - Import `requireAuth` and add to routes that need authentication, e.g.:
