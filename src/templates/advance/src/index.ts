@@ -115,7 +115,7 @@ const startServer = async () => {
   }
 };
 
-if (cluster.isPrimary) {
+if (env.NODE_ENV === 'production' && cluster.isPrimary) {
   const cpus = os.cpus().length || 1;
   logger.info(`Primary ${process.pid} is forking ${cpus} workers`);
   for (let i = 0; i < cpus; i++) cluster.fork();
@@ -124,6 +124,7 @@ if (cluster.isPrimary) {
     cluster.fork();
   });
 } else {
+  // In non-production (development/test) run single-threaded to avoid noisy logs
   // Worker runs the server and installs process handlers
   const serverPromise = startServer();
 

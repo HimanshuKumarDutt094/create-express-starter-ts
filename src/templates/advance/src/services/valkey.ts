@@ -226,7 +226,7 @@ export class ValkeyGlideStore<T> {
 
   async incrBy(key: string, amount = 1) {
     try {
-      const res = await (this.client as any).incrby(this.sKey(key), amount);
+      const res = await (this.client as any).incrBy(this.sKey(key), amount);
       return typeof res === "number" ? res : Number(res);
     } catch (error) {
       logger.error(`[VALKEY] incrBy error for key ${this.sKey(key)}:`, error);

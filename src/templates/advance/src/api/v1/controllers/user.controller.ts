@@ -44,8 +44,18 @@ export const userController = {
       return sendError(res, error.message, "FETCH_USERS_FAILED", 500);
     }
 
+    // Defensive: ensure `data` is an array before using array methods.
+    // Some drivers/clients might return `null`/`undefined` when there are
+    // no rows. Coerce to an array so `.map` is safe.
+    const rows = Array.isArray(data) ? data : (data ? [data] : []);
+
+    if (rows.length === 0) {
+      logger.debug("No users found, returning empty array");
+      return sendSuccess(res, []);
+    }
+
     // Transform database users to response format
-    const users = data.map(transformUser);
+    const users = rows.map(transformUser);
     logger.debug(`Fetched ${users.length} users`);
     return sendSuccess(res, users);
   },

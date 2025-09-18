@@ -167,86 +167,113 @@ export async function main(): Promise<void> {
       },
     });
 
-    // If advance + neon selected, remove sqlite auth schema so we can copy/rename pg one later
-    if (templateType === "advance" && dbChoice === "neon") {
-      const sqliteAuthPath = projPath(
-        targetDir,
-        "src",
-        "drizzle",
-        "auth-schema.sqlite.ts"
-      );
+    // Post-process template files to copy selected auth schema to `auth-schema.ts`
+    if (templateType === "advance") {
       try {
-        await removeIfExists(sqliteAuthPath);
-      } catch (_e) {
-        // ignore
-      }
-
-      // Post-process template files to switch to postgres variants
-      try {
-        // copy auth-schema.pg.ts -> auth-schema.ts
-        const pgAuthSrc = tPath(
+        // Determine source schema in the template
+        const selectedSrcName =
+          dbChoice === "neon" ? "auth-schema.pg.ts" : "auth-schema.sqlite.ts";
+        const selectedSrc = tPath(
           TEMPLATE_DIR,
           "src",
           "drizzle",
-          "auth-schema.pg.ts"
+          selectedSrcName
         );
-        const pgAuthDest = projPath(
+        const destAuth = projPath(
           targetDir,
           "src",
           "drizzle",
           "auth-schema.ts"
         );
-        await copyIfExists(pgAuthSrc, pgAuthDest);
+        // Copy selected variant into auth-schema.ts
+        await copyIfExists(selectedSrc, destAuth);
 
-        // update drizzle.config.ts dialect to postgresql
-        const drizzleConfigPath = projPath(targetDir, "drizzle.config.ts");
-        if (await exists(drizzleConfigPath)) {
-          let content = await readIfExists(drizzleConfigPath);
-          if (content !== null) {
-            content = content.replace(
-              /dialect:\s*"sqlite"/,
-              'dialect: "postgresql"'
-            );
-            await writeFile(drizzleConfigPath, content);
+        // Update drizzle.config.ts dialect for neon
+        if (dbChoice === "neon") {
+          const drizzleConfigPath = projPath(targetDir, "drizzle.config.ts");
+          if (await exists(drizzleConfigPath)) {
+            let content = await readIfExists(drizzleConfigPath);
+            if (content !== null) {
+              content = content.replace(
+                /dialect:\s*"sqlite"/,
+                'dialect: "postgresql"'
+              );
+              await writeFile(drizzleConfigPath, content);
+            }
           }
         }
 
-        // update src/drizzle/index.ts to uncomment neon and comment sqlite usage
+        // Write deterministic `src/drizzle/index.ts` based on selected DB
         const drizzleIndexPath = projPath(
           targetDir,
           "src",
           "drizzle",
           "index.ts"
         );
-        // Write a deterministic `src/drizzle/index.ts` based on selected DB
         if (dbChoice === "neon") {
           await writeFile(drizzleIndexPath, neonDrizzleIndex);
         } else {
           await writeFile(drizzleIndexPath, sqliteDrizzleIndex);
         }
 
+        // Update `schema.ts` to import from `./auth-schema`
         const schemaPath = projPath(targetDir, "src", "drizzle", "schema.ts");
         if (await exists(schemaPath)) {
           let content = await readIfExists(schemaPath);
           if (content !== null) {
-            content = content.replace("./auth-schema.sqlite", "./auth-schema");
+            content = content.replace(
+              /\.\/auth-schema\.(sqlite|pg)/,
+              "./auth-schema"
+            );
             await writeFile(schemaPath, content);
           }
         }
 
+        // Update auth util provider selection for neon
         const authUtilPath = projPath(targetDir, "src", "utils", "auth.ts");
         if (await exists(authUtilPath)) {
           let content = await readIfExists(authUtilPath);
           if (content !== null) {
-            content = content.replace(
-              /provider:\s*"pg"|provider:\s*"sqlite"/,
-              'provider: "pg"'
-            );
+            if (dbChoice === "neon") {
+              content = content.replace(
+                /provider:\s*"pg"|provider:\s*"sqlite"/,
+                'provider: "pg"'
+              );
+            } else {
+              content = content.replace(
+                /provider:\s*"pg"|provider:\s*"sqlite"/,
+                'provider: "sqlite"'
+              );
+            }
             await writeFile(authUtilPath, content);
           }
         }
+
+        // Finally remove both variant files from the generated project so only `auth-schema.ts` remains
+        const pgAuthPath = projPath(
+          targetDir,
+          "src",
+          "drizzle",
+          "auth-schema.pg.ts"
+        );
+        const sqliteAuthPath = projPath(
+          targetDir,
+          "src",
+          "drizzle",
+          "auth-schema.sqlite.ts"
+        );
+        try {
+          await removeIfExists(pgAuthPath);
+        } catch (_e) {
+          // ignore
+        }
+        try {
+          await removeIfExists(sqliteAuthPath);
+        } catch (_e) {
+          // ignore
+        }
       } catch (e) {
-        consola.error("Failed to post-process template for Neon:", e);
+        consola.error("Failed to post-process template for DB selection:", e);
       }
     }
 
@@ -335,18 +362,27 @@ export async function main(): Promise<void> {
   outro(pastel("Project created successfully! 🎉"));
 
   // ...existing code...
+  const packageManager = await detectPackageManager();
   consola.info(`\nNext steps:`);
   if (originalTargetDir !== ".") {
     consola.info(`  cd ${path.relative(process.cwd(), targetDir)}`);
   }
   if (!shouldInstall) {
-    consola.info(`  ${await detectPackageManager()} install`);
+    consola.info(`  ${packageManager} install`);
   }
-  consola.info(`  ${await detectPackageManager()} run dev`);
-  consola.info(
-    `\n  For Drizzle ORM setup, visit: https://orm.drizzle.team/docs/get-started\n`
-  );
-  const packageManager = await detectPackageManager();
+  // If advance template (uses Drizzle), suggest running db push before starting dev
+  if (templateType === "advance") {
+    if (packageManager === "yarn") {
+      consola.info(`  yarn db:push`);
+    } else {
+      consola.info(`  ${packageManager} run db:push`);
+    }
+  }
+  if (packageManager === "yarn") {
+    consola.info(`  yarn dev`);
+  } else {
+    consola.info(`  ${packageManager} run dev`);
+  }
   if (packageManager === "pnpm") {
     consola.info(
       `  For SQLite users, you may need to run: pnpm approve-builds`
