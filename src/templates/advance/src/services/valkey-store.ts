@@ -1,6 +1,6 @@
 import { env } from "@/utils/env.js";
-import { ZodType } from "zod";
-import { userSchema, type User } from "../api/v1/schemas/user.schema.js";
+import z, { ZodType } from "zod";
+import { userSchema } from "../api/v1/schemas/user.schema.js";
 import { createLogger } from "./logger";
 import { ValkeyGlideStore } from "./valkey.js";
 
@@ -31,7 +31,7 @@ const createStore = async <T>({
 
 // Create user store instance
 export const userStore = await createStore({
-  schema: userSchema.omit({ id: true }),
+  schema: userSchema,
   prefix: "user:",
   defaultTTLSeconds: env.USER_CACHE_TTL ? parseInt(env.USER_CACHE_TTL, 10) : 300,
 });
@@ -39,27 +39,17 @@ export const userStore = await createStore({
 // Rate limit store: uses a minimal schema (we store raw numbers as strings in Valkey)
 // We create a lightweight wrapper that uses the same Valkey client to perform atomic incr/expire operations.
 // To get access to a client, we create a store with a trivial schema and then use its methods.
-const counterSchema = {} as any;
+const counterSchema = z.number();
 export const rateLimitStore = await (async () => {
-  const s = await ValkeyGlideStore.createFromEnv(counterSchema as any, {
+  const s = await ValkeyGlideStore.createFromEnv(counterSchema, {
     prefix: `${env.NODE_ENV}:ratelimit:`,
     defaultTTLSeconds: null,
-  }).catch((err) => {
+  }).catch((err: unknown) => {
     logger.warn("Failed to initialize rateLimitStore, falling back to in-memory counters", { err });
-    return null as any;
+    return null;
   });
-  return s as ValkeyGlideStore<any> | null;
+  return s;
 })();
 
 // Export store types for type safety
 export type { User } from "../api/v1/schemas/user.schema.js";
-
-// For backward compatibility
-export async function initStores() {
-  console.log("Stores are now auto-initialized on import");
-}
-
-export interface Stores {
-  userStore: ValkeyGlideStore<Omit<User, "id">>;
-  rateLimitStore?: ValkeyGlideStore<any> | null;
-}

@@ -1,10 +1,10 @@
 // Shared request/controller types
 // These types help you get full typing in controllers while composing with Express generics.
 
-import type { Request, Response, NextFunction, RequestHandler } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 
 // Derive Better Auth types from our configured instance without runtime import
-type AuthInstance = typeof import("@/utils/auth.js")["auth"];
+type AuthInstance = (typeof import("@/utils/auth.js"))["auth"];
 export type Session = NonNullable<Awaited<ReturnType<AuthInstance["api"]["getSession"]>>>;
 export type AuthUser = NonNullable<Session["user"]>;
 
@@ -13,16 +13,15 @@ export type AuthUser = NonNullable<Session["user"]>;
  */
 export type Handler<
   P = Request["params"],
-  ResBody = any,
-  ReqBody = any,
-  ReqQuery = any,
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  Locals extends Record<string, any> = Record<string, any>
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = unknown,
+  Locals extends Record<string, unknown> = Record<string, unknown>,
 > = (
   req: Request<P, ResBody, ReqBody, ReqQuery, Locals>,
   res: Response<ResBody, Locals>,
   next: NextFunction
-) => any;
+) => unknown;
 
 /**
  * A Request where `auth` is guaranteed to be present.
@@ -33,11 +32,10 @@ export type Handler<
  */
 export type AuthedRequest<
   P = Request["params"],
-  ResBody = any,
-  ReqBody = any,
-  ReqQuery = any,
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  Locals extends Record<string, any> = Record<string, any>
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = unknown,
+  Locals extends Record<string, unknown> = Record<string, unknown>,
 > = Request<P, ResBody, ReqBody, ReqQuery, Locals> & {
   auth: {
     session: Session; // Better Auth session object
@@ -60,16 +58,15 @@ export type AuthedRequest<
  */
 export type AuthedHandler<
   P = Request["params"],
-  ResBody = any,
-  ReqBody = any,
-  ReqQuery = any,
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  Locals extends Record<string, any> = Record<string, any>
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = unknown,
+  Locals extends Record<string, unknown> = Record<string, unknown>,
 > = (
   req: AuthedRequest<P, ResBody, ReqBody, ReqQuery, Locals>,
   res: Response<ResBody, Locals>,
   next: NextFunction
-) => any;
+) => unknown;
 
 /**
  * Type signature for a helper that converts an `AuthedHandler` into
@@ -85,6 +82,4 @@ export type AuthedHandler<
  *    this wrapper is the intended fix: `router.put("/x", withRequiredAuth(h))`.
  */
 // Practical, non-generic wrapper type to avoid conflicts with Express' internal generics
-export type WithRequiredAuth = (
-  handler: AuthedHandler<any, any, any, any, any>
-) => RequestHandler;
+export type WithRequiredAuth = (handler: AuthedHandler<unknown>) => RequestHandler;

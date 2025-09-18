@@ -1,4 +1,5 @@
 // src/types/express.d.ts
+import { Session, User } from "better-auth";
 import { ParamsDictionary } from "express-serve-static-core";
 
 declare global {
@@ -9,8 +10,8 @@ declare global {
       };
       // Populated by our Better Auth middleware
       auth?: {
-        session: unknown | null;
-        user: unknown | null;
+        session: Session | null;
+        user: User | null;
       };
     }
   }

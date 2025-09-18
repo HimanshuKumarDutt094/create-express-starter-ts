@@ -1,32 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { GlideClient, TimeUnit } from "@valkey/valkey-glide";
-import type express from "express";
+import { GlideClient, GlideString, SetOptions, TimeUnit } from "@valkey/valkey-glide";
 import { ZodType, z } from "zod";
 import { createLogger } from "./logger";
 
 const logger = createLogger("Valkey");
 
-type SetOptions = {
-  ex?: number;
-  px?: number;
-  nx?: boolean;
-  xx?: boolean;
-  keepttl?: boolean;
-};
+// (removed unused SetOptions; Glide client options vary by version)
 
 /**
  * Valkey/Glide-backed typed store.
  * Stores values as { __sv: number, payload: T } and validates with a Zod schema.
  */
 
-export type StoreOpts = {
+export interface StoreOpts {
   prefix?: string;
   defaultTTLSeconds?: number | null; // null = no expiry by default
   throwOnParse?: boolean; // throw if schema.parse fails on get
   schemaVersion?: number; // a small integer
   deleteCorrupt?: boolean; // delete keys that fail parse on get
-  keySerializer?: (k: string) => string;
-};
+  // Allow serializer to return a GlideString (string | Buffer) if desired
+  keySerializer?: (k: string) => GlideString;
+}
 
 export class ValkeyGlideStore<T> {
   private client: GlideClient;
@@ -36,7 +30,7 @@ export class ValkeyGlideStore<T> {
   private throwOnParse: boolean;
   private schemaVersion: number;
   private deleteCorrupt: boolean;
-  private keySerializer: (k: string) => string;
+  private keySerializer: (k: string) => GlideString;
 
   private closed = false;
 
@@ -52,7 +46,8 @@ export class ValkeyGlideStore<T> {
     this.throwOnParse = !!opts.options?.throwOnParse;
     this.schemaVersion = opts.options?.schemaVersion ?? 1;
     this.deleteCorrupt = opts.options?.deleteCorrupt ?? true;
-    this.keySerializer = opts.options?.keySerializer ?? ((k) => `${this.prefix}${k}`);
+    this.keySerializer =
+      opts.options?.keySerializer ?? ((k) => `${this.prefix}${k}` as GlideString);
   }
 
   // factory to create client from env (convenience for Express)
@@ -109,8 +104,18 @@ export class ValkeyGlideStore<T> {
     return new ValkeyGlideStore<T>({ client, schema, options });
   }
 
-  private sKey(k: string) {
+  private sKey(k: string): GlideString {
     return this.keySerializer(k);
+  }
+
+  // Convert a GlideString (string | Buffer) to UTF-8 string safely
+  private glideToUtf8(s: GlideString | null): string {
+    if (s == null) return "";
+    return typeof s === "string" ? s : s.toString();
+  }
+
+  private isEnvelope(v: unknown): v is { __sv: number; payload: unknown } {
+    return typeof v === "object" && v !== null && "__sv" in (v as any) && "payload" in (v as any);
   }
   private wrap(value: T) {
     return {
@@ -124,69 +129,103 @@ export class ValkeyGlideStore<T> {
     const envelope = JSON.stringify(this.wrap(parsed));
     const ttl = opts?.ttlSeconds ?? this.defaultTTL;
     const cacheKey = this.sKey(key);
+    const cacheKeyStr = this.glideToUtf8(cacheKey);
 
-    logger.debug(`Setting key: ${cacheKey}`, { key: cacheKey, ttl });
+    logger.debug(`Setting key: ${cacheKeyStr}`, { key: cacheKeyStr, ttl });
 
     try {
       if (ttl != null) {
-        await this.client.set(cacheKey, envelope);
-        await this.client.expire(cacheKey, Math.floor(ttl));
-        logger.debug(`Successfully set key with TTL`, { key: cacheKey, ttl });
+        try {
+          // prefer atomic set with expiry when supported
+          const setOpts: SetOptions = {
+            expiry: { type: TimeUnit.Seconds, count: Math.floor(ttl) },
+          } as SetOptions;
+          await this.client.set(this.sKey(key), envelope, setOpts);
+          logger.debug(`Successfully set key with TTL (atomic)`, { key: cacheKeyStr, ttl });
+        } catch (_e) {
+          // fallback to set + expire when atomic set with expiry isn't supported
+          await this.client.set(this.sKey(key), envelope);
+          await this.client.expire(this.sKey(key), Math.floor(ttl));
+          logger.debug(`Successfully set key with TTL (fallback)`, { key: cacheKeyStr, ttl });
+        }
       } else {
-        await this.client.set(cacheKey, envelope);
-        logger.debug(`Successfully set key without TTL`, { key: cacheKey });
+        await this.client.set(this.sKey(key), envelope);
+        logger.debug(`Successfully set key without TTL`, { key: cacheKeyStr });
       }
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`[VALKEY] Error setting key ${cacheKey}:`, errorMessage);
-      logger.error("Full error:", error);
-      throw error;
+      logger.error(`[VALKEY] Error setting key ${cacheKeyStr}: ${errorMessage}`);
+      logger.debug("Full error object:", { error });
+      if (error instanceof Error) throw error;
+      throw new Error(String(error));
     }
   }
 
   async get(key: string): Promise<T | null> {
     if (this.closed) throw new Error("store closed");
     const cacheKey = this.sKey(key);
-    logger.debug(`Getting key`, { key: cacheKey });
+    const cacheKeyStr = this.glideToUtf8(cacheKey);
+    logger.debug(`Getting key`, { key: cacheKeyStr });
 
     try {
-      const raw: string | null = await (this.client as any).get(cacheKey);
+      const raw: GlideString | null = await this.client.get(cacheKey);
       if (raw == null) {
-        logger.debug(`Cache miss`, { key: cacheKey });
+        logger.debug(`Cache miss`, { key: cacheKeyStr });
         return null;
       }
+      const s = this.glideToUtf8(raw);
       try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed !== 'object' || parsed === null || !('payload' in parsed)) {
-          logger.error(`[VALKEY] Invalid cache format for key: ${cacheKey}`);
-          throw new Error('envelope-mismatch');
+        const parsed: unknown = JSON.parse(s);
+        if (!this.isEnvelope(parsed)) {
+          logger.error(`[VALKEY] Invalid cache format for key: ${cacheKeyStr}`);
+          throw new Error("envelope-mismatch");
         }
         const payload = parsed.payload;
-        const validated = this.schema.parse(payload);
-        logger.debug(`Successfully retrieved and validated key`, { key: cacheKey });
-        return validated;
-      } catch (parseError) {
-        logger.error(`[VALKEY] Error parsing cache data for key ${cacheKey}:`, parseError);
+        const result = this.schema.safeParse(payload);
+        if (!result.success) {
+          logger.error(`[VALKEY] Schema validation failed for key ${cacheKeyStr}:`, result.error);
+          if (this.deleteCorrupt) {
+            try {
+              logger.warn(`Deleting corrupted cache entry`, { key: cacheKeyStr });
+              await this.client.del([this.sKey(key)]);
+            } catch (delError) {
+              logger.error(`[VALKEY] Failed to delete corrupted key ${cacheKeyStr}:`, delError);
+            }
+          }
+          if (this.throwOnParse) throw result.error;
+          return null;
+        }
+        logger.debug(`Successfully retrieved and validated key`, { key: cacheKeyStr });
+        return result.data;
+      } catch (parseError: unknown) {
+        const msg = parseError instanceof Error ? parseError.message : String(parseError);
+        logger.error(`[VALKEY] Error parsing cache data for key ${cacheKeyStr}: ${msg}`);
         if (this.deleteCorrupt) {
           try {
-            logger.warn(`Deleting corrupted cache entry`, { key: cacheKey });
-            await (this.client as any).del(cacheKey);
-          } catch (delError) {
-            logger.error(`[VALKEY] Failed to delete corrupted key ${cacheKey}:`, delError);
+            logger.warn(`Deleting corrupted cache entry`, { key: cacheKeyStr });
+            await this.client.del([this.sKey(key)]);
+          } catch (delError: unknown) {
+            const dmsg = delError instanceof Error ? delError.message : String(delError);
+            logger.error(`[VALKEY] Failed to delete corrupted key ${cacheKeyStr}: ${dmsg}`);
           }
         }
-        if (this.throwOnParse) throw parseError;
+        if (this.throwOnParse) {
+          if (parseError instanceof Error) throw parseError;
+          throw new Error(String(parseError));
+        }
         return null;
       }
-    } catch (error) {
-      logger.error(`[VALKEY] Error getting key ${cacheKey}:`, error);
-      throw error;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(`[VALKEY] Error getting key ${cacheKeyStr}: ${msg}`);
+      if (error instanceof Error) throw error;
+      throw new Error(String(error));
     }
   }
 
   async del(key: string) {
-    return (this.client as any).del(this.sKey(key));
+    return this.client.del([this.sKey(key)]);
   }
 
   async setIfAbsent(key: string, value: T, ttlSeconds?: number | null) {
@@ -195,21 +234,27 @@ export class ValkeyGlideStore<T> {
     if (ttlSeconds != null) {
       try {
         const setOpts: SetOptions = {
-          // some GLIDE wrappers have only conditional flags; using expiry + condition NX if supported
           expiry: { type: TimeUnit.Seconds, count: Math.floor(ttlSeconds) },
           onlyIfNotExists: true,
-        } as any;
-        const res = await (this.client as any).set(this.sKey(key), envelope, setOpts);
-        return res === "OK" || res === true;
-      } catch (e) {
-        // fallback: SETNX then EXPIRE
+        } as SetOptions;
+        const res = await this.client.set(this.sKey(key), envelope, setOpts);
+        if (res == null) return false;
+        if (typeof res === "string") return res === "OK";
+        if (typeof res === "boolean") return res;
+        if (typeof res === "number") return res === 1;
+        if (Buffer.isBuffer(res)) return res.toString() === "OK";
+        return !!res;
+      } catch (_e) {
+        // fallback to setnx then expire
       }
     }
-    const nx = await (this.client as any).setnx(this.sKey(key), envelope);
-    if (nx === 1 && ttlSeconds != null) {
-      await (this.client as any).expire(this.sKey(key), Math.floor(ttlSeconds));
+    // Glide client does not expose a single-key `setnx`; use `msetnx` with a single entry
+    const keyStr = this.glideToUtf8(this.sKey(key));
+    const nxRes = await this.client.msetnx({ [keyStr]: envelope });
+    if (nxRes && ttlSeconds != null) {
+      await this.client.expire(this.sKey(key), Math.floor(ttlSeconds));
     }
-    return nx === 1;
+    return nxRes;
   }
 
   async getOrSet(key: string, factory: () => Promise<T>, opts?: { ttlSeconds?: number | null }) {
@@ -221,46 +266,32 @@ export class ValkeyGlideStore<T> {
   }
 
   async ttl(key: string) {
-    return (this.client as any).ttl(this.sKey(key));
+    return this.client.ttl(this.sKey(key));
   }
 
   async incrBy(key: string, amount = 1) {
     try {
-      const res = await (this.client as any).incrBy(this.sKey(key), amount);
+      const res = await this.client.incrBy(this.sKey(key), amount);
       return typeof res === "number" ? res : Number(res);
     } catch (error) {
-      logger.error(`[VALKEY] incrBy error for key ${this.sKey(key)}:`, error);
+      logger.error(`[VALKEY] incrBy error for key ${this.glideToUtf8(this.sKey(key))}:`, error);
       throw error;
     }
   }
 
   async expire(key: string, seconds: number) {
     try {
-      return await (this.client as any).expire(this.sKey(key), Math.floor(seconds));
+      return await this.client.expire(this.sKey(key), Math.floor(seconds));
     } catch (error) {
-      logger.error(`[VALKEY] expire error for key ${this.sKey(key)}:`, error);
+      logger.error(`[VALKEY] expire error for key ${this.glideToUtf8(this.sKey(key))}:`, error);
       throw error;
     }
   }
 
-  expressMiddleware(locKey = "valkeyStore") {
-    return (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-      if (!req.app.locals) {
-        logger.warn("expressMiddleware: req.app.locals is not defined");
-        req.app.locals = {};
-      }
-      req.app.locals[locKey] = this;
-      next();
-    };
-  }
-
-  async close() {
+  close() {
     if (this.closed) return;
     this.closed = true;
-    try {
-      await (this.client as any).quit?.();
-      await (this.client as any).close?.();
-    } catch {}
+    this.client.close();
   }
 }
 

@@ -51,7 +51,7 @@ class Logger {
     this.context = context;
     this.config = {
       isProduction: env.NODE_ENV === "production",
-      logLevel: (env.LOG_LEVEL as LogLevel) || "info",
+      logLevel: env.LOG_LEVEL as LogLevel,
       enableColors: !this.isProduction,
       ...config,
     };
@@ -100,17 +100,17 @@ class Logger {
     return formattedMessage;
   }
 
-  private safeStringify(obj: unknown): unknown {
+  // ...existing code...
+  private safeStringify(obj: unknown): string {
     try {
-      return JSON.parse(
-        JSON.stringify(obj, (key, value) =>
-          typeof value === "bigint" ? value.toString() : value === undefined ? "undefined" : value
-        )
-      );
+      const serialized = JSON.stringify(obj);
+
+      return serialized;
     } catch (error) {
-      return `[Error stringifying: ${error}]`;
+      return `[Error stringifying: ${String(error)}]`;
     }
   }
+  // ...existing code...
 
   private prettyPrint(obj: unknown): string {
     if (typeof obj === "string") return obj;

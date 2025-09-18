@@ -15,11 +15,7 @@ router.get("/", (req, res) => {
 
 // V1 OpenAPI JSON and Swagger UI
 router.get("/v1/openapi.json", openApiJsonHandlerV1);
-router.use(
-  "/v1",
-  swaggerUiMiddleware,
-  getSwaggerUiSetup("/docs/v1/openapi.json"),
-);
+router.use("/v1", swaggerUiMiddleware, getSwaggerUiSetup("/docs/v1/openapi.json"));
 
 // // V2 OpenAPI JSON and Swagger UI (for tRPC)
 // router.get("/v2/openapi.json", openApiJsonHandlerV2);

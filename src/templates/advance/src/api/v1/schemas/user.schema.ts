@@ -41,21 +41,17 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type UserParams = z.infer<typeof userParamsSchema>;
 
 // Helper to handle both Date objects and date strings
-const dateSchema = z.union([
-  z.string().transform(str => new Date(str)),
-  z.date()
-]).refine(
-  (date) => !isNaN(date.getTime()),
-  { message: "Invalid date format" }
-);
+const dateSchema = z
+  .union([z.string().transform((str) => new Date(str)), z.date()])
+  .refine((date) => !isNaN(date.getTime()), { message: "Invalid date format" });
 
 export const userSchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string().email(),
+  email: z.email(),
   age: z.number().int().positive().optional(),
   createdAt: dateSchema.optional(),
-  updatedAt: dateSchema.optional()
+  updatedAt: dateSchema.optional(),
 });
 
 export type User = z.infer<typeof userSchema>;

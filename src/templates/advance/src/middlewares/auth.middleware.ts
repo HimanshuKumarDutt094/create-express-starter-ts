@@ -1,29 +1,25 @@
+import type { WithRequiredAuth } from "@/types/type.js";
 import { sendError } from "@/utils/api-response.js";
 import { auth } from "@/utils/auth.js";
+import type { Session as BetterSession, User as BetterUser } from "better-auth";
 import { fromNodeHeaders } from "better-auth/node";
-import type { Application, NextFunction, Request, RequestHandler, Response } from "express";
-import type { AuthedRequest, WithRequiredAuth } from "@/types/type.js";
+import type { Application, Request, RequestHandler } from "express";
 
-export type AuthContext = {
-  // Using the Better Auth server API
-  session: Awaited<ReturnType<typeof auth.api.getSession>> | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  user: any | null;
-};
+export interface AuthContext {
+  session: BetterSession | null;
+  user: BetterUser | null;
+}
 
 // Attaches auth context to req.auth (session and user if available)
 export const attachAuth: RequestHandler = async (req, _res, next) => {
   try {
     const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (req as any).auth = {
+    req.auth = {
       session,
       user: session?.user ?? null,
     } as AuthContext;
   } catch {
-    // swallow errors to avoid blocking other middlewares; req.auth remains undefined/null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (req as any).auth = { session: null, user: null } as AuthContext;
+    req.auth = { session: null, user: null } as AuthContext;
   }
   next();
 };
@@ -37,15 +33,17 @@ export const attachAuth: RequestHandler = async (req, _res, next) => {
  *  - Type your handler as `AuthedRequest<...>` when using this middleware; or
  *  - Prefer the `withRequiredAuth` wrapper which narrows the handler's `req`.
  */
-export const requireAuth: RequestHandler = async (req, res, next) => {
-  await attachAuth(req, res, async (err?: any) => {
-    if (err) return next(err);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const authCtx = (req as any).auth as AuthContext | undefined;
-    if (!authCtx?.session) {
-      return sendError(res as any, "Unauthorized", "UNAUTHORIZED", 401);
+export const requireAuth: RequestHandler = (req, res, next) => {
+  attachAuth(req, res, (err?: unknown) => {
+    if (err) {
+      next(err as unknown as Error);
+      return;
     }
-    return next();
+    const authCtx = (req as Request & { auth?: AuthContext }).auth;
+    if (!authCtx?.session) {
+      return sendError(res, "Unauthorized", "UNAUTHORIZED", 401);
+    }
+    next();
   });
 };
 
@@ -55,15 +53,17 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
  * fully typed in your controller.
  */
 export const withRequiredAuth: WithRequiredAuth = ((handler) => {
-  const wrapped: RequestHandler = async (req, res, next) => {
-    await attachAuth(req, res, async (err?: any) => {
-      if (err) return next(err);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const authCtx = (req as any).auth as AuthContext | undefined;
-      if (!authCtx?.session) {
-        return sendError(res as any, "Unauthorized", "UNAUTHORIZED", 401);
+  const wrapped: RequestHandler = (req, res, next) => {
+    attachAuth(req, res, (err?: unknown) => {
+      if (err) {
+        next(err as unknown as Error);
+        return;
       }
-      return (handler as any)(req as AuthedRequest, res, next);
+      const authCtx = (req as Request & { auth?: AuthContext }).auth;
+      if (!authCtx?.session) {
+        return sendError(res, "Unauthorized", "UNAUTHORIZED", 401);
+      }
+      return (handler as unknown as RequestHandler)(req as unknown as Request, res, next);
     });
   };
   // Cast to the generic signature to satisfy different route generics
@@ -72,16 +72,18 @@ export const withRequiredAuth: WithRequiredAuth = ((handler) => {
 
 // Higher-order helper to wrap handlers
 export function withAuth(
-  handler: (req: Request, res: Response, next: NextFunction) => any,
+  handler: RequestHandler,
   { required = true }: { required?: boolean } = {}
 ): RequestHandler {
-  return async (req, res, next) => {
-    await attachAuth(req, res, async (err?: any) => {
-      if (err) return next(err);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const authCtx = (req as any).auth as AuthContext | undefined;
+  return (req, res, next) => {
+    attachAuth(req, res, (err?: unknown) => {
+      if (err) {
+        next(err as unknown as Error);
+        return;
+      }
+      const authCtx = (req as Request & { auth?: AuthContext }).auth;
       if (required && !authCtx?.session) {
-        return sendError(res as any, "Unauthorized", "UNAUTHORIZED", 401);
+        return sendError(res, "Unauthorized", "UNAUTHORIZED", 401);
       }
       return handler(req, res, next);
     });

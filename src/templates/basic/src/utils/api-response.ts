@@ -12,11 +12,7 @@ export interface ApiResponse<T> {
   error?: ApiErrorPayload;
 }
 
-export function sendSuccess<T>(
-  res: Response<ApiResponse<T>>,
-  data: T,
-  statusCode = 200
-) {
+export function sendSuccess<T>(res: Response<ApiResponse<T>>, data: T, statusCode = 200) {
   return res.status(statusCode).json({ success: true, data });
 }
 
