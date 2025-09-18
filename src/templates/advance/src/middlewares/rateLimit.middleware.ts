@@ -1,7 +1,7 @@
 import { rateLimitStore } from "@/services/valkey-store.js";
 import { env } from "@/utils/env.js";
 import { NextFunction, Request, Response } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // Global rate limiter using express-rate-limit with environment-aware defaults
 export const globalRateLimiter = rateLimit({
@@ -10,8 +10,9 @@ export const globalRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request) => {
-    // Use IP as the key by default
-    return req.ip;
+    // Use express-rate-limit's helper so IPv6 addresses are handled correctly
+    // Pass the IP string to the helper as recommended in the docs
+    return ipKeyGenerator(req.ip as unknown as string);
   },
   handler: (_req: Request, res: Response) => {
     res.status(429).json({

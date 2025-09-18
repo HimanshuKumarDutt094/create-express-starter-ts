@@ -3,10 +3,22 @@
 import { confirm, intro, outro, select, spinner, text } from "@clack/prompts";
 import consola from "consola";
 import { execa } from "execa";
+// ...existing code...
+// Remove direct fs import, use fs-utils instead
 import fs from "fs-extra";
 import { pastel } from "gradient-string";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  copyIfExists,
+  exists,
+  projPath,
+  readIfExists,
+  removeIfExists,
+  tPath,
+  writeFile,
+} from "./fs-utils";
+import { neonDrizzleIndex, sqliteDrizzleIndex } from "./templates";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,17 +28,17 @@ let TEMPLATE_DIR: string;
 export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
 
 export async function detectPackageManager(): Promise<PackageManager> {
-  // 1. Check environment variable
+  // ...existing code...
   const userAgent = process.env.npm_config_user_agent || "";
   if (userAgent.includes("pnpm")) return "pnpm";
   if (userAgent.includes("yarn")) return "yarn";
   if (userAgent.includes("bun")) return "bun";
 
-  // 2. Fallback to lockfile detection in cwd
+  // ...existing code...
   try {
-    if (await fs.pathExists("pnpm-lock.yaml")) return "pnpm";
-    if (await fs.pathExists("yarn.lock")) return "yarn";
-    if (await fs.pathExists("bun.lock")) return "bun";
+    if (await exists("pnpm-lock.yaml")) return "pnpm";
+    if (await exists("yarn.lock")) return "yarn";
+    if (await exists("bun.lock")) return "bun";
     return "npm";
   } catch (_error) {
     return "npm";
@@ -79,15 +91,14 @@ export async function main(): Promise<void> {
     targetDir = response;
   }
 
-  // Store original targetDir before resolving to absolute path
+  // ...existing code...
   const originalTargetDir = targetDir;
 
-  // Resolve to absolute path
+  // ...existing code...
   targetDir = path.resolve(targetDir);
 
-  // Check if directory exists and is not empty
-  if (await fs.pathExists(targetDir)) {
-    const files = await fs.readdir(targetDir);
+  if (await exists(targetDir)) {
+    const files = await fs.promises.readdir(targetDir);
     if (files.length > 0) {
       consola.error(
         `Aborting: The target directory '${targetDir}' already exists and is not empty. Please choose a different directory or remove the existing one.`
@@ -95,10 +106,9 @@ export async function main(): Promise<void> {
       process.exit(1);
     }
   }
-  // Create directory if it doesn't exist
-  await fs.ensureDir(targetDir);
+  await fs.promises.mkdir(targetDir, { recursive: true });
 
-  // Select template type
+  // ...existing code...
   const templateType = await select({
     message: "Which Express setup would you like?",
     options: [
@@ -111,7 +121,7 @@ export async function main(): Promise<void> {
 
   TEMPLATE_DIR = path.join(__dirname, "templates", templateType);
 
-  // Database choice (only relevant for advance template)
+  // ...existing code...
   let dbChoice: "sqlite" | "neon" = "sqlite";
   if (templateType === "advance") {
     const dbOption = await select({
@@ -126,31 +136,27 @@ export async function main(): Promise<void> {
     dbChoice = dbOption as "sqlite" | "neon";
   }
 
-  // Git init prompt
+  // ...existing code...
   const shouldGitInit = await confirm({
     message: "Would you like to initialize a git repository?",
   });
 
-  // Install dependencies prompt
+  // ...existing code...
   const shouldInstall = await confirm({
     message: "Would you like to install dependencies?",
   });
 
-  // Copy template
+  // ...existing code...
   const s = spinner();
   s.start("Creating project structure");
 
   try {
     await fs.copy(TEMPLATE_DIR, targetDir, {
       filter: (src: string) => {
-        // Don't copy package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lock
         const filename = path.basename(src);
-
-        // Don't copy git-ignore.txt directly, we'll handle it separately
         if (filename === "git-ignore.txt") {
           return false;
         }
-
         return (
           filename !== "node_modules" &&
           filename !== "dist" &&
@@ -163,16 +169,14 @@ export async function main(): Promise<void> {
 
     // If advance + neon selected, remove sqlite auth schema so we can copy/rename pg one later
     if (templateType === "advance" && dbChoice === "neon") {
-      const sqliteAuthPath = path.join(
+      const sqliteAuthPath = projPath(
         targetDir,
         "src",
         "drizzle",
         "auth-schema.sqlite.ts"
       );
       try {
-        if (await fs.pathExists(sqliteAuthPath)) {
-          await fs.remove(sqliteAuthPath);
-        }
+        await removeIfExists(sqliteAuthPath);
       } catch (_e) {
         // ignore
       }
@@ -180,78 +184,66 @@ export async function main(): Promise<void> {
       // Post-process template files to switch to postgres variants
       try {
         // copy auth-schema.pg.ts -> auth-schema.ts
-        const pgAuthSrc = path.join(
+        const pgAuthSrc = tPath(
           TEMPLATE_DIR,
           "src",
           "drizzle",
           "auth-schema.pg.ts"
         );
-        const pgAuthDest = path.join(
+        const pgAuthDest = projPath(
           targetDir,
           "src",
           "drizzle",
           "auth-schema.ts"
         );
-        if (await fs.pathExists(pgAuthSrc)) {
-          await fs.copyFile(pgAuthSrc, pgAuthDest);
-        }
+        await copyIfExists(pgAuthSrc, pgAuthDest);
 
         // update drizzle.config.ts dialect to postgresql
-        const drizzleConfigPath = path.join(targetDir, "drizzle.config.ts");
-        if (await fs.pathExists(drizzleConfigPath)) {
-          let content = await fs.readFile(drizzleConfigPath, "utf8");
-          content = content.replace(
-            /dialect:\s*"sqlite"/,
-            'dialect: "postgresql"'
-          );
-          await fs.writeFile(drizzleConfigPath, content, "utf8");
+        const drizzleConfigPath = projPath(targetDir, "drizzle.config.ts");
+        if (await exists(drizzleConfigPath)) {
+          let content = await readIfExists(drizzleConfigPath);
+          if (content !== null) {
+            content = content.replace(
+              /dialect:\s*"sqlite"/,
+              'dialect: "postgresql"'
+            );
+            await writeFile(drizzleConfigPath, content);
+          }
         }
 
         // update src/drizzle/index.ts to uncomment neon and comment sqlite usage
-        const drizzleIndexPath = path.join(
+        const drizzleIndexPath = projPath(
           targetDir,
           "src",
           "drizzle",
           "index.ts"
         );
-        if (await fs.pathExists(drizzleIndexPath)) {
-          let content = await fs.readFile(drizzleIndexPath, "utf8");
-          // simple substitutions: replace better-sqlite3 import with neon/http and set db accordingly
-          content = content.replace(
-            "drizzle-orm/better-sqlite3",
-            "drizzle-orm/neon-http"
-          );
-          content = content.replace(
-            "export const db = drizzle({ connection: { source: env.DATABASE_URL } });",
-            "const sql = neon(env.DATABASE_URL!);\nexport const db = drizzle({ client: sql });"
-          );
-          // add neon import if missing
-          if (!content.includes("@neondatabase/serverless")) {
-            content = content.replace(
-              'import { drizzle } from "drizzle-orm/neon-http";',
-              'import { drizzle } from "drizzle-orm/neon-http";\nimport { neon } from "@neondatabase/serverless";'
-            );
+        // Write a deterministic `src/drizzle/index.ts` based on selected DB
+        if (dbChoice === "neon") {
+          await writeFile(drizzleIndexPath, neonDrizzleIndex);
+        } else {
+          await writeFile(drizzleIndexPath, sqliteDrizzleIndex);
+        }
+
+        const schemaPath = projPath(targetDir, "src", "drizzle", "schema.ts");
+        if (await exists(schemaPath)) {
+          let content = await readIfExists(schemaPath);
+          if (content !== null) {
+            content = content.replace("./auth-schema.sqlite", "./auth-schema");
+            await writeFile(schemaPath, content);
           }
-          await fs.writeFile(drizzleIndexPath, content, "utf8");
         }
 
-        // update src/drizzle/schema.ts export to point to auth-schema.ts
-        const schemaPath = path.join(targetDir, "src", "drizzle", "schema.ts");
-        if (await fs.pathExists(schemaPath)) {
-          let content = await fs.readFile(schemaPath, "utf8");
-          content = content.replace("./auth-schema.sqlite", "./auth-schema");
-          await fs.writeFile(schemaPath, content, "utf8");
-        }
-
-        // update src/utils/auth.ts provider to 'pg'
-        const authUtilPath = path.join(targetDir, "src", "utils", "auth.ts");
-        if (await fs.pathExists(authUtilPath)) {
-          let content = await fs.readFile(authUtilPath, "utf8");
-          content = content.replace(
-            /provider:\s*"pg"|provider:\s*"sqlite"/,
-            'provider: "pg"'
-          );
-          await fs.writeFile(authUtilPath, content, "utf8");
+        const authUtilPath = projPath(targetDir, "src", "utils", "auth.ts");
+        if (await exists(authUtilPath)) {
+          let content = await readIfExists(authUtilPath);
+          if (content !== null) {
+            content = content.replace(
+              /provider:\s*"pg"|provider:\s*"sqlite"/,
+              'provider: "pg"'
+            );
+            await writeFile(authUtilPath, content);
+          }
         }
       } catch (e) {
         consola.error("Failed to post-process template for Neon:", e);
@@ -260,8 +252,10 @@ export async function main(): Promise<void> {
 
     // Read git-ignore.txt content from template and write to .gitignore in targetDir
     const gitignoreTemplatePath = path.join(TEMPLATE_DIR, "git-ignore.txt");
-    const gitignoreContent = await fs.readFile(gitignoreTemplatePath, "utf8");
-    await fs.writeFile(path.join(targetDir, ".gitignore"), gitignoreContent);
+    const gitignoreContent = await readIfExists(gitignoreTemplatePath);
+    if (gitignoreContent !== null) {
+      await writeFile(path.join(targetDir, ".gitignore"), gitignoreContent);
+    }
 
     // Create .env from env.example.txt (if present). If user selected Neon,
     // remove any DATABASE_URL line so `neondb` can write a fresh value.
@@ -271,17 +265,17 @@ export async function main(): Promise<void> {
       path.join(targetDir, "env.example.txt"),
       path.join(targetDir, "env.example"),
     ];
-
     for (const candidate of envExampleCandidates) {
       try {
-        if (await fs.pathExists(candidate)) {
-          let envContent = await fs.readFile(candidate, "utf8");
-          if (templateType === "advance" && dbChoice === "neon") {
-            // remove DATABASE_URL lines entirely to avoid neondb failing
-            envContent = envContent.replace(/^DATABASE_URL=.*$/gim, "");
+        if (await exists(candidate)) {
+          let envContent = await readIfExists(candidate);
+          if (envContent !== null) {
+            if (templateType === "advance" && dbChoice === "neon") {
+              envContent = envContent.replace(/^DATABASE_URL=.*$/gim, "");
+            }
+            await writeFile(path.join(targetDir, ".env"), envContent);
+            break;
           }
-          await fs.writeFile(path.join(targetDir, ".env"), envContent, "utf8");
-          break;
         }
       } catch (e) {
         // non-fatal; continue to next candidate
@@ -295,7 +289,7 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Git init if requested
+  // ...existing code...
   if (shouldGitInit) {
     s.start("Initializing git repository");
     try {
@@ -307,7 +301,7 @@ export async function main(): Promise<void> {
     }
   }
 
-  // Install dependencies if requested
+  // ...existing code...
   if (shouldInstall) {
     const packageManager = await detectPackageManager();
     consola.info(`Detected package manager: ${packageManager}`);
@@ -323,7 +317,7 @@ export async function main(): Promise<void> {
     }
   }
 
-  // After deps are handled, if user chose Advance + Neon, attempt to run neondb
+  // ...existing code...
   if (templateType === "advance" && dbChoice === "neon") {
     try {
       const ok = await setupWithNeonDb(targetDir);
@@ -337,10 +331,10 @@ export async function main(): Promise<void> {
     }
   }
 
-  // Display completion message
+  // ...existing code...
   outro(pastel("Project created successfully! 🎉"));
 
-  // Show next steps
+  // ...existing code...
   consola.info(`\nNext steps:`);
   if (originalTargetDir !== ".") {
     consola.info(`  cd ${path.relative(process.cwd(), targetDir)}`);
